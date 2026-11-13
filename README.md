@@ -1,8 +1,8 @@
 # obs-kr36
 
-*Chrome titles that fly in from deep space with light streaks, for OBS.*
+*Chrome titles that fly in from deep space, extrude toward the horizon and fade away, for OBS.*
 
-Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que llegan volando desde el fondo del espacio dejando estelas de luz, se detienen frente a la cámara y salen volando hacia ella, sobre un campo de estrellas en movimiento.
+Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que llegan desde el fondo del espacio, se extruyen como bloques de luz hacia el punto de fuga y se alejan hasta desenfocarse y desvanecerse en el horizonte, sobre un campo de estrellas en movimiento.
 
 *[English below](#english)*
 
@@ -18,32 +18,35 @@ Shader para **OBS Studio** inspirado en los créditos de las películas de super
 3. Clic derecho sobre la escena anidada → **Filtros** → **+** → **User-defined shader**.
 4. Activa **Load shader text from file** y elige `titulos-voladores.shader`.
 
-**Por qué en una escena anidada y no directo en el texto:** el filtro solo dibuja dentro del área de la fuente donde se aplica. Si lo pones en la fuente de texto, las estelas y las estrellas se cortan en la caja del texto.
+**Por qué en una escena anidada y no directo en el texto:** el filtro solo dibuja dentro del área de la fuente donde se aplica. Si lo pones en la fuente de texto, la extrusión y las estrellas se cortan en la caja del texto.
 
 Para varios créditos seguidos, haz una escena por crédito o cambia el texto entre reproducciones.
 
 ## Secuencia
 
-| Progreso | Qué pasa |
-|---|---|
-| 0–35 % | El texto llega desde lejos dejando estelas |
-| 35–75 % | Se queda frente a la cámara, acercándose muy despacio; un brillo lo cruza |
-| 75–100 % | Sale volando hacia la cámara (o se desvanece en su lugar) |
+Hay dos modos; el inverso es exactamente la secuencia normal al revés.
+
+| Progreso | Normal: salto al hiperespacio | Inverso |
+|---|---|---|
+| 3–33 % | El texto plano llega desde el horizonte | Llega desde el horizonte ya extruido |
+| 33–50 % | Se queda a tamaño normal; un brillo lo cruza | La extrusión se retrae |
+| 50–65 % | Se extruye hacia el punto de fuga | Se queda plano a tamaño normal |
+| 65–97 % | El bloque se aleja, se desenfoca y se desvanece | Se aleja plano, se desenfoca y se desvanece |
 
 ## Parámetros
 
 | Parámetro | Efecto |
 |---|---|
 | Reproducir en bucle / Duración / Progreso | Bucle automático, o control manual de la secuencia |
-| Punto de fuga X/Y | Desde dónde llega el texto y hacia dónde apuntan las estelas |
-| Distancia inicial | Qué tan chico arranca el texto (40 = 1/40 de su tamaño) |
-| Salir volando hacia la cámara | Si está apagado, el texto se desvanece en su lugar |
+| Punto de fuga X/Y | Desde dónde llega el texto y hacia dónde apunta la extrusión |
+| Distancia del horizonte | Qué tan lejos está el horizonte (40 = ahí el texto mide 1/40 de su tamaño) |
+| Inverso | Llega extruido y se aleja plano, en lugar de llegar plano y alejarse extruido |
+| Desenfoque en el horizonte / Inicio del desvanecido | Cuánto se desenfoca el texto al llegar al horizonte y desde qué distancia empieza a desvanecerse |
 | Profundidad de la extrusión | Cada letra es un bloque 3D que se extiende hacia el punto de fuga (0 = letra plana, 0.9 = casi hasta el fondo) |
-| Estela extra en movimiento | Alarga la extrusión mientras el texto vuela |
 | Brillo del volumen | Qué tan luminoso es el bloque translúcido de la extrusión |
 | Brillo / Grosor de los filos | Las líneas brillantes donde un borde de la letra apunta al punto de fuga |
 | Cromo | 1 = cromo azul; 0 = conserva los colores del texto |
-| color_deep / color_light | Los dos tonos del cromo, también usados en estelas y resplandor |
+| color_deep / color_light | Los dos tonos del cromo, también usados en la extrusión y el resplandor |
 | Bisel del cromo | Grosor del filo iluminado de las letras |
 | Brillo que cruza el texto | Destello diagonal que recorre las letras |
 | Resplandor | Halo alrededor del texto |
@@ -62,9 +65,9 @@ Para varios créditos seguidos, haz una escena por crédito o cambia el texto en
 
 ## English
 
-Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters fly in from deep space leaving light streaks, hold in front of the camera, then fly past it, over a moving starfield.
+Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters fly in from deep space, extrude as glowing blocks toward the vanishing point and recede until they blur and fade at the horizon, over a moving starfield. A reverse mode plays the same sequence backwards.
 
-Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the streaks and stars to the text box). Parameter labels are in Spanish.
+Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the extrusion and stars to the text box). Parameter labels are in Spanish.
 
 To trigger the sequence once with a hotkey, load `intro-control.lua` (**Tools → Scripts**), pick the filter and press *Reproducir*, or bind *Reproducir intro (obs-kr36)* under **Settings → Hotkeys**.
 
