@@ -178,6 +178,14 @@ uniform float exposure<
     float minimum = 0.0; float maximum = 20.0; float step = 0.1;
 > = 6.0;
 
+// Qué tanto tapa la estela: su relleno se vuelve sólido y la letra queda detrás. Con valores
+// altos el texto solo se lee bien en la pausa de lectura, como en la película.
+uniform float streak_opacity<
+    string label = "Opacidad de la estela";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+> = 0.75;
+
 uniform bool letterbox<
     string label = "Formato CinemaScope 2.35:1 (franjas negras)";
 > = false;
@@ -447,19 +455,27 @@ float4 mainImage(VertData v_in) : TARGET
         float w = kodalith_width + out_phase * horizon_blur;
         float face = outlineAt(tc, w * px * z) * (kodalith_width / w);
 
-        // Estela: luz acumulada del contorno en cada instante de la exposición
+        // Estela: luz acumulada del contorno en cada instante de la exposición, más un relleno
+        // (la letra completa barrida) que la vuelve opaca
         float light = 0.0;
+        float fill = 0.0;
         if (has_streak) {
             float kf = 0.0;
-            for (int i = 0; i < 40; i++) {
-                float k = (kf + jit) / 40.0;
+            for (int i = 0; i < 32; i++) {
+                float k = (kf + jit) / 32.0;
                 float zk = z * exp2(k * log2(ratio));
                 float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
-                light += outlineAt(tck, kodalith_width * px * zk) * lerp(1.0, 0.6, k);
+                float wk = lerp(1.0, 0.6, k);
+                light += outlineAt(tck, kodalith_width * px * zk) * wk;
+                fill = max(fill, alphaAt(tck) * wk);
                 kf += 1.0;
             }
-            light = light / 40.0 * exposure;
+            light = light / 32.0 * exposure;
         }
+        // La estela tapa la letra en proporción a su largo: solo se lee nítida en la pausa
+        float cover = streak_opacity * saturate(streak * 4.0);
+        face *= 1.0 - cover;
+        fill *= streak_opacity * saturate(streak * 4.0);
 
         // Halo junto a los bordes, por dentro y por fuera (4·m·(1-m) es máximo en el borde)
         float m = 0.0;
@@ -473,7 +489,7 @@ float4 mainImage(VertData v_in) : TARGET
         float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
         float3 lc = lerp(color_light.rgb, tint, tint_w);
-        float v = (face * 1.5 + light) * fade;
+        float v = (face * 1.5 + light + fill * 0.55) * fade;
         // Donde la luz se satura, la película "quema" hacia blanco
         float3 col = lc * (v + halo * fade * 0.5) + saturate(v - 1.0) * 0.6;
         col *= in_band;
@@ -552,7 +568,7 @@ float4 mainImage(VertData v_in) : TARGET
         // La estela está entre la letra y la cámara: va encima de la cara, más tenue sobre
         // ella para que la letra se siga leyendo
         acc = over(acc, textCol, a * fade);
-        acc = over(acc, volCol, volume * lerp(0.85, 0.35, a));
+        acc = over(acc, volCol, volume * lerp(0.85, streak_opacity, a));
         acc = over(acc, lineCol, lines);
     } else {
         // La estela va detrás de la letra (créditos finales al llegar): la letra la tapa

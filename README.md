@@ -67,6 +67,7 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 | Efecto | Créditos iniciales, créditos finales o escudo |
 | Estilo | Kodalith (contorno de luz) o cromo sólido |
 | Kodalith: grosor del contorno / exposición de la estela | Ancho de la línea de luz y cuánta luz acumula la estela |
+| Opacidad de la estela | Qué tanto tapa la estela al texto; alto = el texto solo se lee nítido en la pausa, como en la película |
 | Formato CinemaScope 2.35:1 | Franjas negras arriba y abajo |
 | Distancia del horizonte / Aparición desde el horizonte | Desde qué tan lejos llegan las letras (iniciales y escudo) y desde qué distancia empiezan a verse |
 | Largo de la extrusión hacia la cámara | Qué tan larga es la estela (0 = sin estela; 1 o más = rebasa la cámara) |
