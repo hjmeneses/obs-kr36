@@ -178,12 +178,13 @@ uniform float exposure<
     float minimum = 0.0; float maximum = 20.0; float step = 0.1;
 > = 6.0;
 
-// Qué tanto tapa la estela: su relleno se vuelve sólido y la letra queda detrás. Con valores
-// altos el texto solo se lee bien en la pausa de lectura, como en la película.
+// Qué tanto tapa la estela. De 0 a 1 tapa la letra (en 1 la oculta por completo mientras hay
+// estela, así que solo se lee en la pausa, como en la película). De 1 a 2 la estela se vuelve
+// más sólida: más brillante y sin dejar ver las estrellas a través.
 uniform float streak_opacity<
     string label = "Opacidad de la estela";
     string widget_type = "slider";
-    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+    float minimum = 0.0; float maximum = 2.0; float step = 0.01;
 > = 0.9;
 
 uniform bool letterbox<
@@ -473,9 +474,13 @@ float4 mainImage(VertData v_in) : TARGET
             light = light / 32.0 * exposure;
         }
         // La estela tapa la letra en proporción a su largo: solo se lee nítida en la pausa
-        float cover = streak_opacity * saturate(streak * 8.0);
-        face *= 1.0 - cover;
-        fill *= streak_opacity * saturate(streak * 8.0);
+        float op = saturate(streak_opacity);
+        float extra = saturate(streak_opacity - 1.0);
+        float ramp = saturate(streak * 8.0);
+        face *= 1.0 - op * ramp;
+        float fill_cover = fill * ramp;
+        fill = fill_cover * op * (1.0 + extra);
+        bg *= 1.0 - fill_cover * extra;
 
         // Halo junto a los bordes, por dentro y por fuera (4·m·(1-m) es máximo en el borde)
         float m = 0.0;
@@ -521,7 +526,7 @@ float4 mainImage(VertData v_in) : TARGET
         vol = 0.0;
         edges = 0.0;
     }
-    float volume = saturate(vol * volume_strength) * fade;
+    float volume = saturate(vol * volume_strength * (1.0 + saturate(streak_opacity - 1.0) * 2.0)) * fade;
     float lines = saturate(edges / 40.0 * 3.0 * line_strength) * fade;
 
     // Cromo: el bisel compara el alfa arriba/abajo e izquierda/derecha (en pixeles de pantalla)
@@ -568,7 +573,7 @@ float4 mainImage(VertData v_in) : TARGET
         // La estela está entre la letra y la cámara: va encima de la cara, más tenue sobre
         // ella para que la letra se siga leyendo
         acc = over(acc, textCol, a * fade);
-        acc = over(acc, volCol, volume * lerp(lerp(0.85, 1.0, streak_opacity), streak_opacity, a));
+        acc = over(acc, volCol, saturate(volume * lerp(lerp(0.85, 1.0, saturate(streak_opacity)), saturate(streak_opacity), a)));
         acc = over(acc, lineCol, lines);
     } else {
         // La estela va detrás de la letra (créditos finales al llegar): la letra la tapa

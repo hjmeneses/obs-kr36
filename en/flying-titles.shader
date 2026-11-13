@@ -178,12 +178,13 @@ uniform float exposure<
     float minimum = 0.0; float maximum = 20.0; float step = 0.1;
 > = 6.0;
 
-// How much the streak covers: its fill turns solid and the letter stays behind it. At high
-// values the text only reads well during the reading pause, as in the film.
+// How much the streak covers. From 0 to 1 it covers the letter (at 1 it hides it completely
+// while streaking, so it only reads during the pause, as in the film). From 1 to 2 the streak
+// gets more solid: brighter, and the stars no longer show through.
 uniform float streak_opacity<
     string label = "Streak opacity";
     string widget_type = "slider";
-    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+    float minimum = 0.0; float maximum = 2.0; float step = 0.01;
 > = 0.9;
 
 uniform bool letterbox<
@@ -473,9 +474,13 @@ float4 mainImage(VertData v_in) : TARGET
         }
         // The streak covers the letter in proportion to its length: it only reads sharp during
         // the pause
-        float cover = streak_opacity * saturate(streak * 8.0);
-        face *= 1.0 - cover;
-        fill *= streak_opacity * saturate(streak * 8.0);
+        float op = saturate(streak_opacity);
+        float extra = saturate(streak_opacity - 1.0);
+        float ramp = saturate(streak * 8.0);
+        face *= 1.0 - op * ramp;
+        float fill_cover = fill * ramp;
+        fill = fill_cover * op * (1.0 + extra);
+        bg *= 1.0 - fill_cover * extra;
 
         // Halo along the edges, inside and out (4·m·(1-m) peaks at the edge)
         float m = 0.0;
@@ -521,7 +526,7 @@ float4 mainImage(VertData v_in) : TARGET
         vol = 0.0;
         edges = 0.0;
     }
-    float volume = saturate(vol * volume_strength) * fade;
+    float volume = saturate(vol * volume_strength * (1.0 + saturate(streak_opacity - 1.0) * 2.0)) * fade;
     float lines = saturate(edges / 40.0 * 3.0 * line_strength) * fade;
 
     // Chrome: the bevel compares alpha above/below and left/right (in screen pixels)
@@ -568,7 +573,7 @@ float4 mainImage(VertData v_in) : TARGET
         // The streak sits between the letter and the camera: it goes over the face, dimmer
         // there so the letter still reads
         acc = over(acc, textCol, a * fade);
-        acc = over(acc, volCol, volume * lerp(lerp(0.85, 1.0, streak_opacity), streak_opacity, a));
+        acc = over(acc, volCol, saturate(volume * lerp(lerp(0.85, 1.0, saturate(streak_opacity)), saturate(streak_opacity), a)));
         acc = over(acc, lineCol, lines);
     } else {
         // The streak is behind the letter (closing credits on arrival): the letter covers it

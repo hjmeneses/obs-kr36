@@ -69,7 +69,7 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 | Efecto | Créditos iniciales, créditos finales o escudo |
 | Estilo | Kodalith (contorno de luz) o cromo sólido |
 | Kodalith: grosor del contorno / exposición de la estela | Ancho de la línea de luz y cuánta luz acumula la estela |
-| Opacidad de la estela | Qué tanto tapa la estela al texto; alto = el texto solo se lee nítido en la pausa, como en la película |
+| Opacidad de la estela | 0–1: qué tanto tapa la estela al texto (1 = solo se lee en la pausa, como en la película). 1–2: la estela se vuelve más sólida y tapa las estrellas |
 | Formato CinemaScope 2.35:1 | Franjas negras arriba y abajo |
 | Distancia del horizonte / Aparición desde el horizonte | Desde qué tan lejos llegan las letras (iniciales y escudo) y desde qué distancia empiezan a verse |
 | Largo de la extrusión hacia la cámara | Qué tan larga es la estela (0 = sin estela; 1 o más = rebasa la cámara) |
@@ -145,7 +145,7 @@ Enable **CinemaScope 2.35:1** for black bars: the original titles were anamorphi
 | Loop playback / Sequence duration / Progress | Automatic loop, or manual control of the sequence |
 | Vanishing point X/Y | Where the letters arrive from and recede to |
 | Kodalith: outline width / streak exposure | Width of the light line and how much light the streak builds up |
-| Streak opacity | How much the streak covers the text; high = text only reads sharp during the pause, as in the film |
+| Streak opacity | 0–1: how much the streak covers the text (1 = it only reads during the pause, as in the film). 1–2: the streak gets more solid and hides the stars |
 | Extrusion length toward camera | Streak length (0 = none; 1 or more = passes the camera) |
 | Pass above (−) / below (+) | 0 = straight at the camera; negative passes above, positive below |
 | Roll when passing above/below | How much the text rolls with the streak; proportional to the bend, so none when going straight |
