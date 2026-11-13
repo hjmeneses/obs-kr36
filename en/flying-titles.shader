@@ -187,6 +187,19 @@ uniform float streak_opacity<
     float minimum = 0.0; float maximum = 2.0; float step = 0.01;
 > = 0.9;
 
+// How many samples the streak uses. If OBS says the encoder is overloaded or frames get skipped
+// while streaming or recording, lower it: the streak gets a little grainier.
+uniform int quality<
+    string label = "Quality (lower it if OBS gets overloaded)";
+    string widget_type = "select";
+    int    option_0_value = 0;
+    string option_0_label = "Low (8 samples, lightest)";
+    int    option_1_value = 1;
+    string option_1_label = "Medium (16 samples)";
+    int    option_2_value = 2;
+    string option_2_label = "High (32 samples, heaviest)";
+> = 1;
+
 uniform bool letterbox<
     string label = "CinemaScope 2.35:1 (black bars)";
 > = false;
@@ -325,8 +338,9 @@ float4 stateEmblem(float p)
 
 float4 textAt(float2 tc)
 {
-    float inb = step(0.0, tc.x) * step(tc.x, 1.0) * step(0.0, tc.y) * step(tc.y, 1.0);
-    return image.Sample(textureSampler, tc) * inb;
+    if (tc.x < 0.0 || tc.x > 1.0 || tc.y < 0.0 || tc.y > 1.0)
+        return float4(0.0, 0.0, 0.0, 0.0);
+    return image.SampleLevel(textureSampler, tc, 0.0);
 }
 
 float alphaAt(float2 tc)
@@ -336,11 +350,12 @@ float alphaAt(float2 tc)
 
 // Letter outline, like the Kodalith sandwich: 1 on the edge, 0 inside and outside.
 // o = half outline width in uv (x and y separately because of the screen aspect ratio).
-float outlineAt(float2 tc, float2 o)
+float2 outlineAt(float2 tc, float2 o)
 {
-    float gx = alphaAt(tc + float2(o.x, 0.0)) - alphaAt(tc - float2(o.x, 0.0));
-    float gy = alphaAt(tc + float2(0.0, o.y)) - alphaAt(tc - float2(0.0, o.y));
-    return saturate(abs(gx) + abs(gy));
+    float ac = alphaAt(tc - o);
+    float gx = alphaAt(tc + float2(o.x, -o.y)) - ac;
+    float gy = alphaAt(tc + float2(-o.x, o.y)) - ac;
+    return float2(saturate(abs(gx) + abs(gy)), ac);
 }
 
 // Text blurred over a disc of radius r (in screen pixels) at scale s.
@@ -437,6 +452,8 @@ float4 mainImage(VertData v_in) : TARGET
     float dy = pass_dir * 0.6;
     float ratio = z_other / z;
     float jit = hash12(floor(uv * uv_size));
+    int ns = (quality == 0) ? 8 : ((quality == 2) ? 32 : 16);
+    float nsf = (float)ns;
     bool has_streak = abs(ratio - 1.0) >= 0.001;
 
     // CinemaScope bars: no image outside the central 2.35:1 band
@@ -449,11 +466,16 @@ float4 mainImage(VertData v_in) : TARGET
 
     float3 bg = stars ? starfield(uv, vp, t) : float3(0.0, 0.0, 0.0);
 
+    if (fade <= 0.001) {
+        float3 e0 = bg * in_band;
+        return stars ? float4(e0, 1.0) : float4(0.0, 0.0, 0.0, 0.0);
+    }
+
     if (style == 0) {
         // Kodalith: everything is light adding up over black, as in the optical printer.
         // Blur widens the outline and spreads the same light over more width.
         float w = kodalith_width + out_phase * horizon_blur;
-        float face = outlineAt(tc, w * px * z) * (kodalith_width / w);
+        float face = outlineAt(tc, w * px * z).x * (kodalith_width / w);
 
         // Streak: outline light accumulated at every instant of the exposure, plus a fill (the
         // whole swept letter) that makes it opaque
@@ -462,15 +484,17 @@ float4 mainImage(VertData v_in) : TARGET
         if (has_streak) {
             float kf = 0.0;
             for (int i = 0; i < 32; i++) {
-                float k = (kf + jit) / 32.0;
+                if (i >= ns) break;
+                float k = (kf + jit) / nsf;
                 float zk = z * exp2(k * log2(ratio));
                 float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
                 float wk = lerp(1.0, 0.6, k);
-                light += outlineAt(tck, kodalith_width * px * zk) * wk;
-                fill = max(fill, alphaAt(tck) * wk);
+                float2 ol = outlineAt(tck, kodalith_width * px * zk);
+                light += ol.x * wk;
+                fill = max(fill, ol.y * wk);
                 kf += 1.0;
             }
-            light = light / 32.0 * exposure;
+            light = light / nsf * exposure;
         }
         // The streak covers the letter in proportion to its length: it only reads sharp during
         // the pause
@@ -485,12 +509,12 @@ float4 mainImage(VertData v_in) : TARGET
         // Halo along the edges, inside and out (4·m·(1-m) peaks at the edge)
         float m = 0.0;
         float gk = 0.0;
-        for (int j = 0; j < 12; j++) {
-            float ga = gk * 0.5235988;
+        for (int j = 0; j < 8; j++) {
+            float ga = gk * 0.7853982;
             m += alphaAt(vp + (rel + float2(cos(ga), sin(ga)) * glow_size * px) * z);
             gk += 1.0;
         }
-        m /= 12.0;
+        m /= 8.0;
         float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
         float3 lc = lerp(color_light.rgb, tint, tint_w);
@@ -510,8 +534,9 @@ float4 mainImage(VertData v_in) : TARGET
     float vol = 0.0;
     float edges = 0.0;
     float fi = 0.0;
-    for (int i = 0; i < 40; i++) {
-        float k = (fi + jit) / 40.0;                       // 0 = letter, 1 = other end
+    for (int i = 0; i < 32; i++) {
+        if (i >= ns) break;
+        float k = (fi + jit) / nsf;                       // 0 = letter, 1 = other end
         float zk = z * exp2(k * log2(ratio));              // ratio^k (ratio is always > 0)
         float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
         // Brighter next to the letter, dimmer toward the other end
@@ -527,7 +552,7 @@ float4 mainImage(VertData v_in) : TARGET
         edges = 0.0;
     }
     float volume = saturate(vol * volume_strength * (1.0 + saturate(streak_opacity - 1.0) * 2.0)) * fade;
-    float lines = saturate(edges / 40.0 * 3.0 * line_strength) * fade;
+    float lines = saturate(edges / nsf * 3.0 * line_strength) * fade;
 
     // Chrome: the bevel compares alpha above/below and left/right (in screen pixels)
     float2 o = bevel * px / s;
@@ -552,14 +577,14 @@ float4 mainImage(VertData v_in) : TARGET
     // Glow: alpha averaged over a ring around the pixel
     float glow = 0.0;
     float gi = 0.0;
-    for (int j = 0; j < 12; j++) {
-        float ga = gi * 0.5235988;
+    for (int j = 0; j < 8; j++) {
+        float ga = gi * 0.7853982;
         float2 go = float2(cos(ga), sin(ga)) * glow_size * px;
         glow += alphaAt(vp + (rel + go) * z);
         gi += 1.0;
     }
     // The halo grows as it blurs, like light scattered far away
-    glow = glow / 12.0 * glow_strength * fade * (1.0 + out_phase);
+    glow = glow / 8.0 * glow_strength * fade * (1.0 + out_phase);
 
     float4 acc = stars ? float4(bg * in_band, 1.0) : float4(0.0, 0.0, 0.0, 0.0);
     a *= in_band;

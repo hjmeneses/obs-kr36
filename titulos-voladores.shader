@@ -187,6 +187,19 @@ uniform float streak_opacity<
     float minimum = 0.0; float maximum = 2.0; float step = 0.01;
 > = 0.9;
 
+// Cuántas muestras usa la estela. Si OBS dice que el codificador está sobrecargado o se saltan
+// cuadros mientras transmites o grabas, bájala: la estela se ve un poco más granulada.
+uniform int quality<
+    string label = "Calidad (bajala si OBS se sobrecarga)";
+    string widget_type = "select";
+    int    option_0_value = 0;
+    string option_0_label = "Baja (8 muestras, la mas ligera)";
+    int    option_1_value = 1;
+    string option_1_label = "Media (16 muestras)";
+    int    option_2_value = 2;
+    string option_2_label = "Alta (32 muestras, la mas pesada)";
+> = 1;
+
 uniform bool letterbox<
     string label = "Formato CinemaScope 2.35:1 (franjas negras)";
 > = false;
@@ -325,8 +338,9 @@ float4 stateEmblem(float p)
 
 float4 textAt(float2 tc)
 {
-    float inb = step(0.0, tc.x) * step(tc.x, 1.0) * step(0.0, tc.y) * step(tc.y, 1.0);
-    return image.Sample(textureSampler, tc) * inb;
+    if (tc.x < 0.0 || tc.x > 1.0 || tc.y < 0.0 || tc.y > 1.0)
+        return float4(0.0, 0.0, 0.0, 0.0);
+    return image.SampleLevel(textureSampler, tc, 0.0);
 }
 
 float alphaAt(float2 tc)
@@ -336,11 +350,12 @@ float alphaAt(float2 tc)
 
 // Contorno de la letra, como el sándwich Kodalith: 1 en el borde, 0 dentro y fuera.
 // o = medio ancho del contorno en uv (x e y por separado por la proporción de la pantalla).
-float outlineAt(float2 tc, float2 o)
+float2 outlineAt(float2 tc, float2 o)
 {
-    float gx = alphaAt(tc + float2(o.x, 0.0)) - alphaAt(tc - float2(o.x, 0.0));
-    float gy = alphaAt(tc + float2(0.0, o.y)) - alphaAt(tc - float2(0.0, o.y));
-    return saturate(abs(gx) + abs(gy));
+    float ac = alphaAt(tc - o);
+    float gx = alphaAt(tc + float2(o.x, -o.y)) - ac;
+    float gy = alphaAt(tc + float2(-o.x, o.y)) - ac;
+    return float2(saturate(abs(gx) + abs(gy)), ac);
 }
 
 // Texto desenfocado en un disco de radio r (en pixeles de pantalla) a escala s.
@@ -438,6 +453,8 @@ float4 mainImage(VertData v_in) : TARGET
     float dy = pass_dir * 0.6;
     float ratio = z_other / z;
     float jit = hash12(floor(uv * uv_size));
+    int ns = (quality == 0) ? 8 : ((quality == 2) ? 32 : 16);
+    float nsf = (float)ns;
     bool has_streak = abs(ratio - 1.0) >= 0.001;
 
     // Franjas negras de CinemaScope: fuera de la banda central de 2.35:1 no hay imagen
@@ -450,11 +467,16 @@ float4 mainImage(VertData v_in) : TARGET
 
     float3 bg = stars ? starfield(uv, vp, t) : float3(0.0, 0.0, 0.0);
 
+    if (fade <= 0.001) {
+        float3 e0 = bg * in_band;
+        return stars ? float4(e0, 1.0) : float4(0.0, 0.0, 0.0, 0.0);
+    }
+
     if (style == 0) {
         // Kodalith: todo es luz que se suma sobre el negro, como en la copiadora óptica.
         // El desenfoque ensancha el contorno y reparte la misma luz en más ancho.
         float w = kodalith_width + out_phase * horizon_blur;
-        float face = outlineAt(tc, w * px * z) * (kodalith_width / w);
+        float face = outlineAt(tc, w * px * z).x * (kodalith_width / w);
 
         // Estela: luz acumulada del contorno en cada instante de la exposición, más un relleno
         // (la letra completa barrida) que la vuelve opaca
@@ -463,15 +485,17 @@ float4 mainImage(VertData v_in) : TARGET
         if (has_streak) {
             float kf = 0.0;
             for (int i = 0; i < 32; i++) {
-                float k = (kf + jit) / 32.0;
+                if (i >= ns) break;
+                float k = (kf + jit) / nsf;
                 float zk = z * exp2(k * log2(ratio));
                 float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
                 float wk = lerp(1.0, 0.6, k);
-                light += outlineAt(tck, kodalith_width * px * zk) * wk;
-                fill = max(fill, alphaAt(tck) * wk);
+                float2 ol = outlineAt(tck, kodalith_width * px * zk);
+                light += ol.x * wk;
+                fill = max(fill, ol.y * wk);
                 kf += 1.0;
             }
-            light = light / 32.0 * exposure;
+            light = light / nsf * exposure;
         }
         // La estela tapa la letra en proporción a su largo: solo se lee nítida en la pausa
         float op = saturate(streak_opacity);
@@ -485,12 +509,12 @@ float4 mainImage(VertData v_in) : TARGET
         // Halo junto a los bordes, por dentro y por fuera (4·m·(1-m) es máximo en el borde)
         float m = 0.0;
         float gk = 0.0;
-        for (int j = 0; j < 12; j++) {
-            float ga = gk * 0.5235988;
+        for (int j = 0; j < 8; j++) {
+            float ga = gk * 0.7853982;
             m += alphaAt(vp + (rel + float2(cos(ga), sin(ga)) * glow_size * px) * z);
             gk += 1.0;
         }
-        m /= 12.0;
+        m /= 8.0;
         float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
         float3 lc = lerp(color_light.rgb, tint, tint_w);
@@ -510,8 +534,9 @@ float4 mainImage(VertData v_in) : TARGET
     float vol = 0.0;
     float edges = 0.0;
     float fi = 0.0;
-    for (int i = 0; i < 40; i++) {
-        float k = (fi + jit) / 40.0;                       // 0 = letra, 1 = otro extremo
+    for (int i = 0; i < 32; i++) {
+        if (i >= ns) break;
+        float k = (fi + jit) / nsf;                       // 0 = letra, 1 = otro extremo
         float zk = z * exp2(k * log2(ratio));              // ratio^k (ratio siempre > 0)
         float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
         // Más claro junto a la letra, más tenue hacia el otro extremo
@@ -527,7 +552,7 @@ float4 mainImage(VertData v_in) : TARGET
         edges = 0.0;
     }
     float volume = saturate(vol * volume_strength * (1.0 + saturate(streak_opacity - 1.0) * 2.0)) * fade;
-    float lines = saturate(edges / 40.0 * 3.0 * line_strength) * fade;
+    float lines = saturate(edges / nsf * 3.0 * line_strength) * fade;
 
     // Cromo: el bisel compara el alfa arriba/abajo e izquierda/derecha (en pixeles de pantalla)
     float2 o = bevel * px / s;
@@ -552,14 +577,14 @@ float4 mainImage(VertData v_in) : TARGET
     // Resplandor: alfa promediado en un anillo alrededor del pixel
     float glow = 0.0;
     float gi = 0.0;
-    for (int j = 0; j < 12; j++) {
-        float ga = gi * 0.5235988;
+    for (int j = 0; j < 8; j++) {
+        float ga = gi * 0.7853982;
         float2 go = float2(cos(ga), sin(ga)) * glow_size * px;
         glow += alphaAt(vp + (rel + go) * z);
         gi += 1.0;
     }
     // El halo crece al desenfocarse, como la luz dispersa a lo lejos
-    glow = glow / 12.0 * glow_strength * fade * (1.0 + out_phase);
+    glow = glow / 8.0 * glow_strength * fade * (1.0 + out_phase);
 
     float4 acc = stars ? float4(bg * in_band, 1.0) : float4(0.0, 0.0, 0.0, 0.0);
     a *= in_band;
