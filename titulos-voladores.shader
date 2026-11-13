@@ -7,17 +7,28 @@
 // la escena anidada, no a la fuente de texto: así el efecto tiene todo el lienzo para la
 // extrusión y las estrellas.
 //
-// Modo normal (Progreso 0 → 100):
-//   3–30   El texto llega desde el punto de fuga hasta su tamaño normal.
-//   30–45  Se queda frente a la cámara, con un brillo que lo cruza.
-//   45–62  Se extruye hacia la cámara (directo, o pasando por arriba o por abajo).
-//   62–97  Las letras siguen a su extrusión hacia la cámara hasta rebasarla.
-// Modo inverso:
-//   3–35   Las letras llegan desde la cámara con la extrusión detrás.
-//   35–50  La extrusión se retrae.
-//   50–62  Se quedan a tamaño normal.
-//   62–97  Se alejan sin llegar al punto de fuga: se desenfocan, pasan a naranja, luego a
-//          azul y se desvanecen.
+// Tres efectos (selector "Efecto"), Progreso 0 → 100:
+//
+// Créditos iniciales
+//   3–30   Las letras llegan limpias desde el punto de fuga.
+//   30–50  Pausa de lectura.
+//   50–80  La estela se dispara hacia la cámara y la rebasa (por defecto pasa un poco por
+//          encima, como si las letras volaran sobre nosotros).
+//   80–97  Las letras siguen a su estela y se van.
+//
+// Créditos finales
+//   3–30   Las letras llegan desde detrás de la cámara con la estela por delante; la estela
+//          se corta de golpe al llegar.
+//   30–50  Pausa de lectura.
+//   50–97  Se alejan limpias; a los 3/4 del camino se desenfocan pasando de azul a naranja y
+//          de vuelta a azul, y se apagan sin llegar al punto de fuga.
+//
+// Escudo
+//   3–97   Nace en el centro con estelas hacia el espectador desde el primer instante y avanza
+//          hasta llenar el cuadro antes de desvanecerse.
+//
+// Tip: para el contorno delgado de las letras de la película, usa en la fuente de texto de
+// OBS un contorno con el relleno transparente; la estela saldrá del contorno.
 
 uniform bool auto_play<
     string label = "Reproducir en bucle (ignora Progreso)";
@@ -54,9 +65,16 @@ uniform float z_far<
     float minimum = 3.0; float maximum = 100.0; float step = 1.0;
 > = 40.0;
 
-uniform bool reverse<
-    string label = "Inverso: llega desde la camara y se desvanece a lo lejos";
-> = false;
+uniform int mode<
+    string label = "Efecto";
+    string widget_type = "select";
+    int    option_0_value = 0;
+    string option_0_label = "Creditos iniciales: llega limpio, sale con estela hacia la camara";
+    int    option_1_value = 1;
+    string option_1_label = "Creditos finales: llega con estela, sale limpio con cambio de color";
+    int    option_2_value = 2;
+    string option_2_label = "Escudo: avanza con estelas desde el centro hasta llenar el cuadro";
+> = 0;
 
 // Al llegar desde el punto de fuga, desde qué distancia empieza a verse (fracción del horizonte).
 uniform float fade_start<
@@ -65,19 +83,19 @@ uniform float fade_start<
     float minimum = 0.05; float maximum = 0.95; float step = 0.01;
 > = 0.3;
 
-// Modo inverso: hasta qué distancia se aleja mientras se desenfoca y cambia de color.
-// 4 = termina a 1/4 de su tamaño, lejos del punto de fuga.
+// Créditos finales: hasta qué distancia se aleja antes de apagarse. A los 3/4 del camino
+// empieza el desenfoque con el cambio azul → naranja → azul.
 uniform float fade_dist<
-    string label = "Inverso: distancia a la que se desvanece";
+    string label = "Finales: distancia a la que se apaga";
     string widget_type = "slider";
-    float minimum = 1.2; float maximum = 20.0; float step = 0.1;
-> = 4.0;
+    float minimum = 1.5; float maximum = 40.0; float step = 0.1;
+> = 12.0;
 
 uniform float horizon_blur<
-    string label = "Inverso: desenfoque al desvanecerse (px)";
+    string label = "Finales: desenfoque al apagarse (px)";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 40.0; float step = 0.5;
-> = 16.0;
+> = 14.0;
 
 uniform float4 color_warm = {1.0, 0.55, 0.12, 1.0};
 uniform float4 color_cool = {0.15, 0.35, 1.0, 1.0};
@@ -103,7 +121,7 @@ uniform float pass_dir<
     string label = "Pasa por arriba (-) / abajo (+)";
     string widget_type = "slider";
     float minimum = -1.0; float maximum = 1.0; float step = 0.01;
-> = 0.0;
+> = -0.25;
 
 // Giro del texto mientras se extruye. Es proporcional a "Pasa por arriba/abajo", así que
 // yendo directo a la cámara no gira.
@@ -208,41 +226,61 @@ float horizonAt(float z)
     return smoothstep(z_far * fade_start, z_far * 0.97, z);
 }
 
-// Estado del texto en el instante p. Devuelve:
-//   x = distancia z (1 = tamaño normal; la escala en pantalla es 1/z, como en perspectiva real)
-//   y = extrusión (0..1)
+// Estado en el instante p. Devuelve:
+//   x = distancia z de la letra (1 = tamaño normal; la escala en pantalla es 1/z)
+//   y = distancia z del otro extremo de la estela (igual a x = sin estela). Menor que x = la
+//       estela va de la letra hacia la cámara; mayor = va de la letra hacia el fondo.
 //   z = visibilidad (0..1)
-//   w = fase de salida del modo inverso (0..1): desenfoque y cambio de color
+//   w = fase del desenfoque con cambio de color de los créditos finales (0..1)
 //
-// Normal: llega desde el punto de fuga, se queda, se extruye hacia la cámara y la letra sigue
-// a su extrusión hasta rebasar la cámara.
-float4 stateNormal(float p)
+// Las estelas imitan el obturador abierto de la cámara de animación: un extremo queda donde
+// estaba la letra al abrir el obturador y el otro donde está ahora.
+
+// Créditos iniciales: llega limpio desde el punto de fuga, pausa de lectura, y la estela se
+// dispara hacia la cámara (rebasándola); al final la letra la sigue.
+float4 stateOpening(float p)
 {
     if (p < 0.30) {
         float u = seg(p, 0.03, 0.30);
         float z = lerp(z_far, 1.0, 1.0 - (1.0 - u) * (1.0 - u));   // llega y frena
-        return float4(z, 0.0, 1.0 - horizonAt(z), 0.0);
+        return float4(z, z, 1.0 - horizonAt(z), 0.0);
     }
-    if (p < 0.62)
-        return float4(1.0, ease(seg(p, 0.45, 0.62)), 1.0, 0.0);
-    float u = seg(p, 0.62, 0.97);
-    // z baja en línea recta: en perspectiva la letra crece cada vez más rápido
-    return float4(lerp(1.0, 0.02, u), 1.0, 1.0 - smoothstep(0.85, 1.0, u), 0.0);
+    if (p < 0.50)
+        return float4(1.0, 1.0, 1.0, 0.0);                         // pausa de lectura
+    if (p < 0.80) {
+        float u = seg(p, 0.50, 0.80);
+        return float4(1.0, max(1.0 - u * u * extrude, 0.02), 1.0, 0.0);   // acelera
+    }
+    float u = seg(p, 0.80, 0.97);
+    float zf = max(1.0 - extrude, 0.02);
+    return float4(lerp(1.0, 0.02, u * u), zf, 1.0 - smoothstep(0.6, 1.0, u), 0.0);
 }
 
-// Inverso: llega desde la cámara con la extrusión detrás, la extrusión se retrae, se queda y
-// se aleja sin llegar al punto de fuga: se desenfoca, pasa a naranja, luego a azul y se va.
-float4 stateReverse(float p)
+// Créditos finales: llega desde detrás de la cámara con la estela por delante (hacia su
+// destino), la estela se corta de golpe al llegar, pausa, se aleja limpio y a los 3/4 del
+// camino se desenfoca pasando de azul a naranja y de vuelta a azul antes de apagarse.
+float4 stateClosing(float p)
 {
-    if (p < 0.35) {
-        float u = seg(p, 0.03, 0.35);
+    if (p < 0.30) {
+        float u = seg(p, 0.03, 0.30);
         float z = lerp(0.02, 1.0, 1.0 - (1.0 - u) * (1.0 - u));   // llega y frena
-        return float4(z, 1.0, smoothstep(0.0, 0.15, u), 0.0);
+        return float4(z, 1.0, smoothstep(0.0, 0.1, u), 0.0);
     }
-    if (p < 0.62)
-        return float4(1.0, 1.0 - ease(seg(p, 0.35, 0.50)), 1.0, 0.0);
-    float u = seg(p, 0.62, 0.97);
-    return float4(lerp(1.0, fade_dist, u), 0.0, 1.0 - smoothstep(0.6, 1.0, u), u);
+    if (p < 0.50)
+        return float4(1.0, 1.0, 1.0, 0.0);                         // pausa de lectura
+    float u = seg(p, 0.50, 0.97);
+    float z = lerp(1.0, fade_dist, u);
+    float ph = seg(u, 0.75, 1.0);
+    return float4(z, z, 1.0 - smoothstep(0.7, 1.0, ph), ph);
+}
+
+// Escudo: nace en el centro con estelas hacia el espectador desde el primer instante y avanza
+// hasta llenar el cuadro antes de desvanecerse.
+float4 stateEmblem(float p)
+{
+    float u = seg(p, 0.03, 0.97);
+    float z = z_far * exp2(u * log2(0.5 / z_far));     // velocidad pareja en perspectiva
+    return float4(z, max(z * (1.0 - extrude), 0.02), smoothstep(0.0, 0.08, u) * (1.0 - smoothstep(0.85, 1.0, u)), 0.0);
 }
 
 float4 textAt(float2 tc)
@@ -319,14 +357,17 @@ float4 mainImage(VertData v_in) : TARGET
     float2 px = uv_pixel_interval;
 
     float p = auto_play ? frac(t / max(duration, 0.5)) : saturate(progress * 0.01);
-    float4 st = reverse ? stateReverse(p) : stateNormal(p);
+    float4 st = (mode == 1) ? stateClosing(p) : ((mode == 2) ? stateEmblem(p) : stateOpening(p));
     float z = st.x;
+    float z_other = st.y;
     float s = 1.0 / z;
     float fade = st.z;
     float out_phase = st.w;
+    // Qué tan larga es la estela (0 = sin estela, 1 = muy larga), medida en perspectiva
+    float streak = saturate(abs(log2(z_other / z)) * 0.5);
     // Giro del texto al extruirse, solo si la extrusión se desvía arriba/abajo. Se rota en
     // pixeles para no deformar con la proporción de la pantalla.
-    float ang = radians(roll) * pass_dir * st.y;
+    float ang = radians(roll) * pass_dir * streak;
     float ca = cos(ang);
     float sa = sin(ang);
     float2 rp = (uv - vp) * uv_size;
@@ -338,16 +379,15 @@ float4 mainImage(VertData v_in) : TARGET
     if (src.a > 0.0001)
         src.rgb /= src.a;    // de premultiplicado a color normal
 
-    // Extrusión hacia la cámara: la letra está en z y el bloque llega hasta zn (más cerca, más
-    // grande). Cada muestra es una copia de la letra a la profundidad zk, desplazada en
-    // vertical según "Pasa por arriba/abajo". Para la copia a distancia d de la letra, el
-    // punto de pantalla q viene de q = (X + desvío·d) / zk, así que X = q·zk - desvío·d.
-    // Las profundidades van en progresión geométrica (pasos parejos en perspectiva) con un
-    // desfase aleatorio por pixel, que cambia el bandeo de copias por un grano fino parecido
-    // al slit-scan de la película.
+    // Estela: la letra está en z y la estela llega hasta z_other (hacia la cámara si es menor,
+    // hacia el fondo si es mayor). Cada muestra es una copia de la letra a la profundidad zk,
+    // desplazada en vertical según "Pasa por arriba/abajo". Para la copia a distancia d de la
+    // letra, el punto de pantalla q viene de q = (X + desvío·d) / zk, así que
+    // X = q·zk - desvío·d. Las profundidades van en progresión geométrica (pasos parejos en
+    // perspectiva) con un desfase aleatorio por pixel, que cambia el bandeo de copias por un
+    // grano fino parecido al slit-scan de la película.
     float dy = pass_dir * 0.6;
-    float zn = max(z - st.y * extrude, 0.02);
-    float ratio = zn / z;
+    float ratio = z_other / z;
     // Las aristas del bloque convergen en (0, -dy) respecto al punto de fuga
     float2 rd = normalize((rel + float2(0.0, dy)) * uv_size + float2(0.0001, 0.0));
     float2 tp = float2(-rd.y, rd.x) * line_width * px;    // perpendicular a la arista, en uv
@@ -357,10 +397,10 @@ float4 mainImage(VertData v_in) : TARGET
     float edges = 0.0;
     float fi = 0.0;
     for (int i = 0; i < 40; i++) {
-        float k = (fi + jit) / 40.0;                       // 0 = letra, 1 = extremo cercano
+        float k = (fi + jit) / 40.0;                       // 0 = letra, 1 = otro extremo
         float zk = z * exp2(k * log2(ratio));              // ratio^k (ratio siempre > 0)
         float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
-        // Más claro junto a la letra, más oscuro en el extremo que se acerca a la cámara
+        // Más claro junto a la letra, más tenue hacia el otro extremo
         vol = max(vol, alphaAt(tck) * lerp(1.0, 0.6, k));
         // Filo: un borde de la letra alineado con la arista se cruza en todas las muestras y
         // suma una línea brillante; un borde atravesado solo suma una muestra
@@ -368,7 +408,7 @@ float4 mainImage(VertData v_in) : TARGET
         edges += abs(alphaAt(tck + off) - alphaAt(tck - off));
         fi += 1.0;
     }
-    if (ratio > 0.999) {
+    if (abs(ratio - 1.0) < 0.001) {
         vol = 0.0;
         edges = 0.0;
     }
@@ -386,12 +426,16 @@ float4 mainImage(VertData v_in) : TARGET
     float band = uv.x + uv.y * 0.5 - (frac(t * 0.15) * 2.5 - 0.5);
     chrome += exp(-band * band * 60.0) * sheen;
     float3 textCol = lerp(src.rgb, chrome, chrome_amount);
-    // La cara de la letra queda en sombra detrás de su propia extrusión
-    textCol *= 1.0 - face_shadow * st.y * saturate(extrude);
+    // Si la estela va hacia la cámara, queda entre la letra y el espectador: la letra se
+    // oscurece detrás de ella
+    bool streak_in_front = z_other < z;
+    if (streak_in_front)
+        textCol *= 1.0 - face_shadow * streak;
 
-    // Salida del modo inverso: pasa a naranja y luego a azul mientras se desenfoca
+    // Salida de los créditos finales: del cromo azul pasa a naranja y vuelve a un azul difuso
+    // mientras se desenfoca
     float tint_w = smoothstep(0.0, 0.3, out_phase);
-    float3 tint = lerp(color_warm.rgb, color_cool.rgb, smoothstep(0.35, 0.75, out_phase));
+    float3 tint = lerp(color_warm.rgb, color_cool.rgb, smoothstep(0.4, 0.8, out_phase));
     textCol = lerp(textCol, tint * (0.7 + 0.5 * L), tint_w);
     float3 glowCol = lerp(color_light.rgb, tint, tint_w);
 
@@ -404,15 +448,25 @@ float4 mainImage(VertData v_in) : TARGET
         glow += alphaAt(vp + (rel + go) * z);
         gi += 1.0;
     }
-    glow = glow / 12.0 * glow_strength * fade;
+    // El halo crece al desenfocarse, como la luz dispersa a lo lejos
+    glow = glow / 12.0 * glow_strength * fade * (1.0 + out_phase);
 
-    // Orden de capas: la extrusión está entre la letra y la cámara, así que el volumen y sus
-    // filos se dibujan encima de la cara (más tenue sobre ella, para que la letra se lea)
     float4 acc = stars ? float4(starfield(uv, vp, t), 1.0) : float4(0.0, 0.0, 0.0, 0.0);
     acc = over(acc, glowCol, saturate(glow) * (1.0 - a));
-    acc = over(acc, textCol, a * fade);
-    acc = over(acc, color_light.rgb * lerp(0.7, 1.1, vol), volume * lerp(0.85, 0.35, a));
-    acc = over(acc, lerp(color_light.rgb, float3(1.0, 1.0, 1.0), 0.55), lines);
+    float3 volCol = color_light.rgb * lerp(0.7, 1.1, vol);
+    float3 lineCol = lerp(color_light.rgb, float3(1.0, 1.0, 1.0), 0.55);
+    if (streak_in_front) {
+        // La estela está entre la letra y la cámara: va encima de la cara, más tenue sobre
+        // ella para que la letra se siga leyendo
+        acc = over(acc, textCol, a * fade);
+        acc = over(acc, volCol, volume * lerp(0.85, 0.35, a));
+        acc = over(acc, lineCol, lines);
+    } else {
+        // La estela va detrás de la letra (créditos finales al llegar): la letra la tapa
+        acc = over(acc, volCol, volume * 0.85 * (1.0 - a));
+        acc = over(acc, lineCol, lines * (1.0 - a));
+        acc = over(acc, textCol, a * fade);
+    }
 
     return float4(acc.rgb / max(acc.a, 0.0001), acc.a);
 }

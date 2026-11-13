@@ -1,8 +1,8 @@
 # obs-kr36
 
-*Chrome titles that extrude toward the camera as glowing blocks of light, for OBS.*
+*Chrome titles with open-shutter light streaks toward the camera, for OBS.*
 
-Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que se extruyen como bloques de luz hacia la cámara, sobre un campo de estrellas en movimiento. Tiene dos efectos: las letras llegan desde el punto de fuga y salen siguiendo su extrusión hacia la cámara, o llegan desde la cámara y se alejan desenfocándose mientras cambian de color.
+Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que dejan estelas de luz hacia la cámara, como una cámara de animación con el obturador abierto, sobre un campo de estrellas en movimiento.
 
 *[English below](#english)*
 
@@ -22,14 +22,34 @@ Shader para **OBS Studio** inspirado en los créditos de las películas de super
 
 Para varios créditos seguidos, haz una escena por crédito o cambia el texto entre reproducciones.
 
-## Secuencia
+## Efectos
 
-| Progreso | Normal | Progreso | Inverso |
-|---|---|---|---|
-| 3–30 % | Las letras llegan desde el punto de fuga | 3–35 % | Llegan desde la cámara con la extrusión detrás |
-| 30–45 % | Se quedan a tamaño normal; un brillo las cruza | 35–50 % | La extrusión se retrae |
-| 45–62 % | Se extruyen hacia la cámara | 50–62 % | Se quedan a tamaño normal |
-| 62–97 % | Siguen a su extrusión hasta rebasar la cámara | 62–97 % | Se alejan sin llegar al punto de fuga: se desenfocan, pasan a naranja, luego a azul y se desvanecen |
+Se eligen en el selector **Efecto**. Los porcentajes son del slider *Progreso*.
+
+**Créditos iniciales**
+
+| Progreso | Qué pasa |
+|---|---|
+| 3–30 % | Las letras llegan limpias desde el punto de fuga, sin estela |
+| 30–50 % | Pausa de lectura |
+| 50–80 % | La estela se dispara hacia la cámara y la rebasa (por defecto pasa un poco por encima) |
+| 80–97 % | Las letras siguen a su estela y se van |
+
+**Créditos finales**
+
+| Progreso | Qué pasa |
+|---|---|
+| 3–30 % | Las letras llegan desde detrás de la cámara con la estela por delante; la estela se corta de golpe al llegar |
+| 30–50 % | Pausa de lectura |
+| 50–97 % | Se alejan limpias; a los 3/4 del camino se desenfocan pasando de azul a naranja y de vuelta a azul, y se apagan sin llegar al punto de fuga |
+
+**Escudo**
+
+| Progreso | Qué pasa |
+|---|---|
+| 3–97 % | Nace en el centro con estelas hacia el espectador desde el primer instante y avanza hasta llenar el cuadro antes de desvanecerse |
+
+**Tip:** las letras de la película son un contorno delgado. Para lograrlo, en la fuente de texto de OBS activa el contorno y deja el relleno transparente: la estela saldrá del contorno, como en el original.
 
 ## Parámetros
 
@@ -37,16 +57,16 @@ Para varios créditos seguidos, haz una escena por crédito o cambia el texto en
 |---|---|
 | Reproducir en bucle / Duración / Progreso | Bucle automático, o control manual de la secuencia |
 | Punto de fuga X/Y | Hacia dónde llegan y se alejan las letras |
-| Distancia del horizonte / Aparición desde el horizonte | Desde qué tan lejos llegan las letras en el modo normal y desde qué distancia empiezan a verse |
-| Inverso | Cambia al segundo efecto |
-| Inverso: distancia / desenfoque al desvanecerse | Hasta dónde se alejan (4 = a 1/4 de su tamaño) y cuánto se desenfocan |
-| color_warm / color_cool | El naranja y el azul por los que pasan al desvanecerse en el modo inverso |
-| Sombra en la cara de la letra | Cuánto se oscurece la letra detrás de su extrusión; bajo para letras sólidas, alto para letras huecas |
-| Largo de la extrusión hacia la cámara | Cada letra es un bloque 3D que sale de la letra hacia el espectador (0 = plana; 1 o más = el bloque rebasa la cámara) |
-| Pasa por arriba (−) / abajo (+) | 0 = la extrusión va directo a la cámara; negativo pasa por encima, positivo por debajo |
-| Rotación al pasar arriba/abajo | Cuánto gira el texto al extruirse; es proporcional al desvío, así que yendo directo a la cámara no gira |
-| Brillo del volumen | Qué tan luminoso es el bloque translúcido de la extrusión |
-| Brillo / Grosor de los filos | Las líneas brillantes donde un borde de la letra queda alineado con la extrusión |
+| Efecto | Créditos iniciales, créditos finales o escudo |
+| Distancia del horizonte / Aparición desde el horizonte | Desde qué tan lejos llegan las letras (iniciales y escudo) y desde qué distancia empiezan a verse |
+| Largo de la extrusión hacia la cámara | Qué tan larga es la estela (0 = sin estela; 1 o más = rebasa la cámara) |
+| Pasa por arriba (−) / abajo (+) | 0 = la estela va directo a la cámara; negativo pasa por encima, positivo por debajo |
+| Rotación al pasar arriba/abajo | Cuánto gira el texto con la estela; es proporcional al desvío, así que yendo directo a la cámara no gira |
+| Brillo del volumen | Qué tan luminoso es el volumen translúcido de la estela |
+| Brillo / Grosor de los filos | Las líneas brillantes donde un borde de la letra queda alineado con la estela |
+| Sombra en la cara de la letra | Cuánto se oscurece la letra detrás de su estela; bajo para letras sólidas, alto para letras huecas |
+| Finales: distancia / desenfoque al apagarse | Hasta dónde se alejan las letras y cuánto se desenfocan |
+| color_warm / color_cool | El naranja y el azul difuso por los que pasan al apagarse en los créditos finales |
 | Cromo | 1 = cromo azul; 0 = conserva los colores del texto |
 | color_deep / color_light | Los dos tonos del cromo, también usados en la extrusión y el resplandor |
 | Bisel del cromo | Grosor del filo iluminado de las letras |
@@ -67,7 +87,7 @@ Para varios créditos seguidos, haz una escena por crédito o cambia el texto en
 
 ## English
 
-Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters extrude as glowing blocks toward the camera (straight at it, or passing above or below), over a moving starfield. In normal mode the letters arrive from the vanishing point and follow their extrusion past the camera; in reverse mode they arrive from the camera, then recede while blurring and shifting to orange, then blue, before fading out.
+Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters leave open-shutter light streaks toward the camera, over a moving starfield. Three effects: opening credits (letters arrive clean from the vanishing point, hold, then streak past the camera), closing credits (letters arrive from behind the camera with streaks ahead of them, hold, then recede clean, blurring from blue to orange and back to blue before fading out) and emblem (a logo streaks from the center until it fills the frame).
 
 Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the extrusion and stars to the text box). Parameter labels are in Spanish.
 
