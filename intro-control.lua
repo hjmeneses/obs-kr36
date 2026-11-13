@@ -14,7 +14,7 @@
 obs = obslua
 
 local SHADER_FILTER_ID = "shader_filter"
-local SHADER_PATTERN = { "titulos%-voladores", "kr36" }
+local SHADER_PATTERN = { "titulos%-voladores", "flying%-titles", "kr36" }
 local TICK_MS = 16
 
 local g_target = ""
@@ -133,11 +133,9 @@ local function play()
     end
     local s = obs.obs_source_get_settings(f)
     local d = obs.obs_data_get_double(s, "duration")
-    local file = (obs.obs_data_get_string(s, "shader_file_name") or ""):lower()
     obs.obs_data_release(s)
     -- Si nunca se movió el slider, el valor no está guardado y llega 0: usa el default del shader
-    local default = 8.0
-    g_duration = (d and d > 0) and d or default
+    g_duration = (d and d > 0) and d or 8.0
 
     set_progress(f, 0.0, true)
     obs.obs_source_release(f)
@@ -177,7 +175,7 @@ function script_properties()
         return true
     end)
     obs.obs_properties_add_button(props, "play", "Reproducir", function() play(); return false end)
-    obs.obs_properties_add_button(props, "reset", "Volver al inicio (negro)", function() reset(); return false end)
+    obs.obs_properties_add_button(props, "reset", "Volver al inicio", function() reset(); return false end)
     return props
 end
 

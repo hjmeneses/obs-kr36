@@ -22,6 +22,8 @@ Shader para **OBS Studio** inspirado en los créditos de las películas de super
 
 Para varios créditos seguidos, haz una escena por crédito o cambia el texto entre reproducciones.
 
+La versión en inglés está en la carpeta `en/` (`flying-titles.shader` y su `intro-control.lua`). Tiene el mismo código y los mismos nombres de parámetros, así que puedes cambiar de idioma sin perder tus ajustes.
+
 ## Efectos
 
 Se eligen en el selector **Efecto**. Los porcentajes son del slider *Progreso*.
@@ -98,11 +100,67 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 
 ## English
 
-Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters leave open-shutter light streaks toward the camera, over a moving starfield. Three effects: opening credits (letters arrive clean from the vanishing point, hold, then streak past the camera), closing credits (letters arrive from behind the camera with streaks ahead of them, hold, then recede clean, blurring from blue to orange and back to blue before fading out) and emblem (a logo streaks from the center until it fills the frame). The default Kodalith style recreates the original technique: only the letter outline lets light through, and the open shutter accumulates that light into streaks. Optional 2.35:1 letterbox.
+Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue letters leave open-shutter light streaks toward the camera, over a moving starfield. The English files are in `en/`: `flying-titles.shader` and its `intro-control.lua`. They share the code and parameter names with the Spanish files, so you can switch languages without losing your settings.
 
-Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the extrusion and stars to the text box). Parameter labels are in Spanish.
+### Requirements
 
-To trigger the sequence once with a hotkey, load `intro-control.lua` (**Tools → Scripts**), pick the filter and press *Reproducir*, or bind *Reproducir intro (obs-kr36)* under **Settings → Hotkeys**.
+- OBS Studio
+- [obs-shaderfilter](https://github.com/exeldro/obs-shaderfilter) plugin
+
+### Setup
+
+1. Make a separate scene, for example "Credits", with your text (text source or PNG with transparency). Bold capitals look best.
+2. Add the "Credits" scene inside your main scene.
+3. Right-click the nested scene → **Filters** → **+** → **User-defined shader**.
+4. Enable **Load shader text from file** and pick `en/flying-titles.shader`.
+
+**Why a nested scene and not the text itself:** the filter only draws inside the area of the source it is applied to. On the text source, the streaks and stars get clipped to the text box.
+
+### Effects
+
+Pick one in the **Effect** select. Percentages refer to the *Progress* slider.
+
+| Progress | Opening credits | Closing credits |
+|---|---|---|
+| 3–30 % | Letters arrive clean from the vanishing point | Letters arrive from behind the camera with the streak ahead of them; it cuts off on arrival |
+| 30–50 % | Reading pause | Reading pause |
+| 50–80 % | The streak shoots toward the camera and passes it (slightly above by default) | They recede clean… |
+| 80–97 % | The letters follow their streak and leave | …and three quarters of the way they blur from blue to orange and back to blue, going out before the vanishing point |
+
+**Emblem:** born at the center with streaks toward the viewer from the first frame, it advances until it fills the frame, then fades out.
+
+### Styles
+
+| Style | Look |
+|---|---|
+| **Kodalith** (default) | As in the film. R/Greenberg stacked a Kodalith negative and positive of the letter with a blue gel in between, so light only came through the **outline**. With the shutter open that light built up: edges running along the motion leave bright lines and crossing edges faint sheets. The shader builds the outline from solid text. |
+| **Solid chrome** | Filled letter with a chrome bevel and a translucent volume. |
+
+Enable **CinemaScope 2.35:1** for black bars: the original titles were anamorphic.
+
+### Main parameters
+
+| Parameter | Effect |
+|---|---|
+| Loop playback / Sequence duration / Progress | Automatic loop, or manual control of the sequence |
+| Vanishing point X/Y | Where the letters arrive from and recede to |
+| Kodalith: outline width / streak exposure | Width of the light line and how much light the streak builds up |
+| Streak opacity | How much the streak covers the text; high = text only reads sharp during the pause, as in the film |
+| Extrusion length toward camera | Streak length (0 = none; 1 or more = passes the camera) |
+| Pass above (−) / below (+) | 0 = straight at the camera; negative passes above, positive below |
+| Roll when passing above/below | How much the text rolls with the streak; proportional to the bend, so none when going straight |
+| Closing: fade-out distance / blur | How far the letters recede and how much they blur |
+| color_warm / color_cool | The orange and diffuse blue of the closing-credits fade |
+| Volume brightness / Edge brightness / Letter face shadow / Chrome / Bevel / Sheen | Solid chrome style only |
+| Starfield background | Off = transparent background, to overlay on something else |
+
+### Hotkey (script)
+
+`en/intro-control.lua` turns the filter loop off and moves Progress from 0 to 100 over the filter duration.
+
+1. **Tools → Scripts → +** and pick `en/intro-control.lua`.
+2. Choose your filter under **Titles filter** (if it is missing, **Refresh list**).
+3. Press **Play**, or bind **Play intro (obs-kr36)** under **Settings → Hotkeys**.
 
 Not affiliated with or endorsed by any film studio or comic publisher.
 
