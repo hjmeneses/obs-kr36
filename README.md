@@ -38,7 +38,10 @@ Para varios créditos seguidos, haz una escena por crédito o cambia el texto en
 | Punto de fuga X/Y | Desde dónde llega el texto y hacia dónde apuntan las estelas |
 | Distancia inicial | Qué tan chico arranca el texto (40 = 1/40 de su tamaño) |
 | Salir volando hacia la cámara | Si está apagado, el texto se desvanece en su lugar |
-| Largo / Brillo de las estelas | El rastro de luz que deja el texto al moverse |
+| Profundidad de la extrusión | Cada letra es un bloque 3D que se extiende hacia el punto de fuga (0 = letra plana, 0.9 = casi hasta el fondo) |
+| Estela extra en movimiento | Alarga la extrusión mientras el texto vuela |
+| Brillo del volumen | Qué tan luminoso es el bloque translúcido de la extrusión |
+| Brillo / Grosor de los filos | Las líneas brillantes donde un borde de la letra apunta al punto de fuga |
 | Cromo | 1 = cromo azul; 0 = conserva los colores del texto |
 | color_deep / color_light | Los dos tonos del cromo, también usados en estelas y resplandor |
 | Bisel del cromo | Grosor del filo iluminado de las letras |

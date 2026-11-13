@@ -52,18 +52,40 @@ uniform bool fly_out<
     string label = "Salir volando hacia la camara (si no, se desvanece)";
 > = true;
 
-// Las estelas son el rastro de dónde estuvo el texto en este último tramo de la secuencia.
+// Cada letra es un bloque 3D que se extiende hacia el punto de fuga. 0 = letra plana;
+// 0.9 = la extrusión llega casi hasta el punto de fuga, como en los créditos de la película.
+uniform float extrude<
+    string label = "Profundidad de la extrusion";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 0.98; float step = 0.01;
+> = 0.9;
+
+// Mientras el texto se mueve, la extrusión se alarga con el rastro de dónde estuvo.
 uniform float trail_length<
-    string label = "Largo de las estelas";
+    string label = "Estela extra en movimiento";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 0.3; float step = 0.005;
-> = 0.10;
+> = 0.08;
 
-uniform float trail_strength<
-    string label = "Brillo de las estelas";
+uniform float volume_strength<
+    string label = "Brillo del volumen";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 2.0; float step = 0.01;
-> = 0.9;
+> = 0.8;
+
+// Líneas brillantes en los filos de la extrusión (donde un borde de la letra apunta al
+// punto de fuga).
+uniform float line_strength<
+    string label = "Brillo de los filos";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 4.0; float step = 0.01;
+> = 1.6;
+
+uniform float line_width<
+    string label = "Grosor de los filos (px)";
+    string widget_type = "slider";
+    float minimum = 0.5; float maximum = 6.0; float step = 0.1;
+> = 1.5;
 
 // 1 = cromo azul; 0 = conserva los colores originales del texto.
 uniform float chrome_amount<
@@ -221,25 +243,44 @@ float4 mainImage(VertData v_in) : TARGET
     float4 src = textAt(tc);
     float a = src.a;
 
-    // Estelas: el texto en instantes anteriores (más lejos = más chico); se queda el más
-    // brillante y se atenúa con la antigüedad
-    float trail = 0.0;
-    float fi = 1.0;
-    for (int i = 0; i < 24; i++) {
-        float k = fi / 24.0;
-        float pk = max(p - trail_length * k, 0.0);
-        float si = scaleAt(pk);
-        float ai = alphaAt(vp + (uv - vp) / si) * fadeAt(pk);
-        trail = max(trail, ai * (1.0 - k) * (1.0 - k));
+    // Extrusión: la letra repetida a escalas cada vez menores hacia el punto de fuga forma un
+    // bloque 3D. Las escalas se reparten en progresión geométrica (pasos parejos en
+    // perspectiva) y con un desfase aleatorio por pixel, que cambia el bandeo de copias por
+    // un grano fino parecido al slit-scan de la película.
+    float s_min = min(s * (1.0 - extrude), scaleAt(max(p - trail_length, 0.0)));
+    float ratio = clamp(s_min / s, 0.02, 1.0);
+    float2 rd = normalize((uv - vp) * uv_size + float2(0.0001, 0.0));
+    float2 tp = float2(-rd.y, rd.x) * line_width * px;    // perpendicular al rayo, en uv
+    float jit = hash12(floor(uv * uv_size));
+
+    float vol = 0.0;
+    float edges = 0.0;
+    float fi = 0.0;
+    for (int i = 0; i < 40; i++) {
+        float k = (fi + jit) / 40.0;                       // 0 = cara frontal, 1 = fondo
+        float sk = s * pow(ratio, k);
+        float2 tck = vp + (uv - vp) / sk;
+        // Más claro hacia el fondo: la luz parece salir del punto de fuga
+        vol = max(vol, alphaAt(tck) * lerp(0.55, 1.0, k));
+        // Filo: un borde de la letra paralelo al rayo se cruza en todas las muestras y suma
+        // una línea brillante; un borde atravesado solo suma una muestra
+        float2 off = tp / sk;
+        edges += abs(alphaAt(tck + off) - alphaAt(tck - off));
         fi += 1.0;
     }
-    trail *= trail_strength;
+    if (ratio > 0.999) {
+        vol = 0.0;
+        edges = 0.0;
+    }
+    float volume = saturate(vol * volume_strength) * fade;
+    float lines = saturate(edges / 40.0 * 3.0 * line_strength) * fade;
 
     // Cromo: el bisel compara el alfa arriba/abajo e izquierda/derecha (en pixeles de pantalla)
     float2 o = bevel * px / s;
     float top = alphaAt(tc + float2(0.0, o.y)) - alphaAt(tc - float2(0.0, o.y));
     float left = alphaAt(tc + float2(o.x, 0.0)) - alphaAt(tc - float2(o.x, 0.0));
-    float L = saturate(0.45 + 0.55 * top + 0.2 * left);
+    // Cara frontal más oscura que la extrusión, como en la película; el filo superior brilla
+    float L = saturate(0.3 + 0.6 * top + 0.2 * left);
     float3 chrome = lerp(color_deep.rgb, color_light.rgb, L);
     chrome += pow(saturate(top), 3.0) * 0.8;
     float band = uv.x + uv.y * 0.5 - (frac(t * 0.15) * 2.5 - 0.5);
@@ -259,8 +300,8 @@ float4 mainImage(VertData v_in) : TARGET
 
     float4 acc = stars ? float4(starfield(uv, vp, t), 1.0) : float4(0.0, 0.0, 0.0, 0.0);
     acc = over(acc, color_light.rgb, saturate(glow) * (1.0 - a));
-    float3 trailCol = lerp(color_deep.rgb * 2.0, color_light.rgb + 0.3, saturate(trail));
-    acc = over(acc, trailCol, saturate(trail) * (1.0 - a));
+    acc = over(acc, color_light.rgb * lerp(0.7, 1.1, vol), volume * 0.85 * (1.0 - a));
+    acc = over(acc, lerp(color_light.rgb, float3(1.0, 1.0, 1.0), 0.55), lines * (1.0 - a));
     acc = over(acc, textCol, a * fade);
 
     return float4(acc.rgb / max(acc.a, 0.0001), acc.a);
