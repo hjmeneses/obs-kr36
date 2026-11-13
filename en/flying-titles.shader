@@ -184,7 +184,7 @@ uniform float streak_opacity<
     string label = "Streak opacity";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 1.0; float step = 0.01;
-> = 0.75;
+> = 0.9;
 
 uniform bool letterbox<
     string label = "CinemaScope 2.35:1 (black bars)";
@@ -473,9 +473,9 @@ float4 mainImage(VertData v_in) : TARGET
         }
         // The streak covers the letter in proportion to its length: it only reads sharp during
         // the pause
-        float cover = streak_opacity * saturate(streak * 4.0);
+        float cover = streak_opacity * saturate(streak * 8.0);
         face *= 1.0 - cover;
-        fill *= streak_opacity * saturate(streak * 4.0);
+        fill *= streak_opacity * saturate(streak * 8.0);
 
         // Halo along the edges, inside and out (4·m·(1-m) peaks at the edge)
         float m = 0.0;
@@ -489,7 +489,7 @@ float4 mainImage(VertData v_in) : TARGET
         float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
         float3 lc = lerp(color_light.rgb, tint, tint_w);
-        float v = (face * 1.5 + light + fill * 0.55) * fade;
+        float v = (face * 1.5 + light + fill * 0.9) * fade;
         // Where the light saturates, the film "burns" toward white
         float3 col = lc * (v + halo * fade * 0.5) + saturate(v - 1.0) * 0.6;
         col *= in_band;
@@ -568,7 +568,7 @@ float4 mainImage(VertData v_in) : TARGET
         // The streak sits between the letter and the camera: it goes over the face, dimmer
         // there so the letter still reads
         acc = over(acc, textCol, a * fade);
-        acc = over(acc, volCol, volume * lerp(0.85, streak_opacity, a));
+        acc = over(acc, volCol, volume * lerp(lerp(0.85, 1.0, streak_opacity), streak_opacity, a));
         acc = over(acc, lineCol, lines);
     } else {
         // The streak is behind the letter (closing credits on arrival): the letter covers it
