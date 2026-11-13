@@ -1,8 +1,8 @@
 # obs-kr36
 
-*Chrome titles that fly in from deep space, extrude toward the camera and fade away at the horizon, for OBS.*
+*Chrome titles that extrude toward the camera as glowing blocks of light, for OBS.*
 
-Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que llegan desde el fondo del espacio, se extruyen como bloques de luz hacia la cámara y se alejan hasta desenfocarse y desvanecerse en el horizonte, sobre un campo de estrellas en movimiento.
+Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que se extruyen como bloques de luz hacia la cámara, sobre un campo de estrellas en movimiento. Tiene dos efectos: las letras llegan desde el punto de fuga y salen siguiendo su extrusión hacia la cámara, o llegan desde la cámara y se alejan desenfocándose mientras cambian de color.
 
 *[English below](#english)*
 
@@ -24,24 +24,24 @@ Para varios créditos seguidos, haz una escena por crédito o cambia el texto en
 
 ## Secuencia
 
-Hay dos modos; el inverso es exactamente la secuencia normal al revés.
-
-| Progreso | Normal: salto al hiperespacio | Inverso |
-|---|---|---|
-| 3–33 % | El texto plano llega desde el horizonte | Llega desde el horizonte ya extruido |
-| 33–50 % | Se queda a tamaño normal; un brillo lo cruza | La extrusión se retrae |
-| 50–65 % | Se extruye hacia la cámara | Se queda plano a tamaño normal |
-| 65–97 % | El bloque se aleja, se desenfoca y se desvanece | Se aleja plano, se desenfoca y se desvanece |
+| Progreso | Normal | Progreso | Inverso |
+|---|---|---|---|
+| 3–30 % | Las letras llegan desde el punto de fuga | 3–35 % | Llegan desde la cámara con la extrusión detrás |
+| 30–45 % | Se quedan a tamaño normal; un brillo las cruza | 35–50 % | La extrusión se retrae |
+| 45–62 % | Se extruyen hacia la cámara | 50–62 % | Se quedan a tamaño normal |
+| 62–97 % | Siguen a su extrusión hasta rebasar la cámara | 62–97 % | Se alejan sin llegar al punto de fuga: se desenfocan, pasan a naranja, luego a azul y se desvanecen |
 
 ## Parámetros
 
 | Parámetro | Efecto |
 |---|---|
 | Reproducir en bucle / Duración / Progreso | Bucle automático, o control manual de la secuencia |
-| Punto de fuga X/Y | Desde dónde llega el texto y hacia dónde se aleja |
-| Distancia del horizonte | Qué tan lejos está el horizonte (40 = ahí el texto mide 1/40 de su tamaño) |
-| Inverso | Llega extruido y se aleja plano, en lugar de llegar plano y alejarse extruido |
-| Desenfoque en el horizonte / Inicio del desvanecido | Cuánto se desenfoca el texto al llegar al horizonte y desde qué distancia empieza a desvanecerse |
+| Punto de fuga X/Y | Hacia dónde llegan y se alejan las letras |
+| Distancia del horizonte / Aparición desde el horizonte | Desde qué tan lejos llegan las letras en el modo normal y desde qué distancia empiezan a verse |
+| Inverso | Cambia al segundo efecto |
+| Inverso: distancia / desenfoque al desvanecerse | Hasta dónde se alejan (4 = a 1/4 de su tamaño) y cuánto se desenfocan |
+| color_warm / color_cool | El naranja y el azul por los que pasan al desvanecerse en el modo inverso |
+| Sombra en la cara de la letra | Cuánto se oscurece la letra detrás de su extrusión; bajo para letras sólidas, alto para letras huecas |
 | Largo de la extrusión hacia la cámara | Cada letra es un bloque 3D que sale de la letra hacia el espectador (0 = plana; 1 o más = el bloque rebasa la cámara) |
 | Pasa por arriba (−) / abajo (+) | 0 = la extrusión va directo a la cámara; negativo pasa por encima, positivo por debajo |
 | Rotación al pasar arriba/abajo | Cuánto gira el texto al extruirse; es proporcional al desvío, así que yendo directo a la cámara no gira |
@@ -67,7 +67,7 @@ Hay dos modos; el inverso es exactamente la secuencia normal al revés.
 
 ## English
 
-Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters fly in from deep space, extrude as glowing blocks toward the camera (straight at it, or passing above or below) and recede until they blur and fade at the horizon, over a moving starfield. A reverse mode plays the same sequence backwards.
+Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters extrude as glowing blocks toward the camera (straight at it, or passing above or below), over a moving starfield. In normal mode the letters arrive from the vanishing point and follow their extrusion past the camera; in reverse mode they arrive from the camera, then recede while blurring and shifting to orange, then blue, before fading out.
 
 Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the extrusion and stars to the text box). Parameter labels are in Spanish.
 

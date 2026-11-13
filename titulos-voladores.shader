@@ -1,20 +1,23 @@
-// Títulos voladores: letras de cromo azul que llegan desde el fondo del espacio, se extruyen
-// como bloques 3D hacia la cámara y se alejan hasta perderse en el horizonte. Estilo
-// créditos de películas de superhéroes de los 70, para OBS Studio (plugin obs-shaderfilter,
-// modo "User-defined shader").
+// Títulos voladores: letras de cromo azul que se extruyen como bloques de luz hacia la cámara.
+// Estilo créditos de películas de superhéroes de los 70, para OBS Studio (plugin
+// obs-shaderfilter, modo "User-defined shader").
 //
 // Cómo usarlo: pon tu texto (fuente de texto o PNG con transparencia) en una escena aparte,
 // por ejemplo "Créditos". Agrega esa escena dentro de tu escena principal y aplica el filtro a
-// la escena anidada, no a la fuente de texto: así el efecto tiene todo el lienzo para las
-// estelas y las estrellas. El texto vuela hacia/desde el "Punto de fuga".
+// la escena anidada, no a la fuente de texto: así el efecto tiene todo el lienzo para la
+// extrusión y las estrellas.
 //
-// Secuencia normal (Progreso 0 → 100), "salto al hiperespacio":
-//   3–33   El texto plano llega desde el horizonte hasta su tamaño normal.
-//   33–50  Se queda frente a la cámara, con un brillo que lo cruza.
-//   50–65  Se extruye hacia la cámara (directo, o pasando por arriba o por abajo).
-//   65–97  El bloque se aleja; cerca del horizonte se desenfoca y se desvanece.
-// Secuencia inversa: la misma al revés. Llega como bloque extruido, la extrusión se retrae al
-// alcanzar su tamaño normal, se queda y se aleja plano hasta desvanecerse.
+// Modo normal (Progreso 0 → 100):
+//   3–30   El texto llega desde el punto de fuga hasta su tamaño normal.
+//   30–45  Se queda frente a la cámara, con un brillo que lo cruza.
+//   45–62  Se extruye hacia la cámara (directo, o pasando por arriba o por abajo).
+//   62–97  Las letras siguen a su extrusión hacia la cámara hasta rebasarla.
+// Modo inverso:
+//   3–35   Las letras llegan desde la cámara con la extrusión detrás.
+//   35–50  La extrusión se retrae.
+//   50–62  Se quedan a tamaño normal.
+//   62–97  Se alejan sin llegar al punto de fuga: se desenfocan, pasan a naranja, luego a
+//          azul y se desvanecen.
 
 uniform bool auto_play<
     string label = "Reproducir en bucle (ignora Progreso)";
@@ -52,22 +55,40 @@ uniform float z_far<
 > = 40.0;
 
 uniform bool reverse<
-    string label = "Inverso: llega extruido y se aleja plano";
+    string label = "Inverso: llega desde la camara y se desvanece a lo lejos";
 > = false;
 
-// Desenfoque máximo justo antes de desaparecer en el horizonte.
-uniform float horizon_blur<
-    string label = "Desenfoque en el horizonte (px)";
-    string widget_type = "slider";
-    float minimum = 0.0; float maximum = 30.0; float step = 0.5;
-> = 10.0;
-
-// Desde qué distancia empieza a desenfocarse y desvanecerse (fracción del horizonte).
+// Al llegar desde el punto de fuga, desde qué distancia empieza a verse (fracción del horizonte).
 uniform float fade_start<
-    string label = "Inicio del desvanecido (fraccion del horizonte)";
+    string label = "Aparicion desde el horizonte (fraccion)";
     string widget_type = "slider";
     float minimum = 0.05; float maximum = 0.95; float step = 0.01;
 > = 0.3;
+
+// Modo inverso: hasta qué distancia se aleja mientras se desenfoca y cambia de color.
+// 4 = termina a 1/4 de su tamaño, lejos del punto de fuga.
+uniform float fade_dist<
+    string label = "Inverso: distancia a la que se desvanece";
+    string widget_type = "slider";
+    float minimum = 1.2; float maximum = 20.0; float step = 0.1;
+> = 4.0;
+
+uniform float horizon_blur<
+    string label = "Inverso: desenfoque al desvanecerse (px)";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 40.0; float step = 0.5;
+> = 16.0;
+
+uniform float4 color_warm = {1.0, 0.55, 0.12, 1.0};
+uniform float4 color_cool = {0.15, 0.35, 1.0, 1.0};
+
+// Qué tanto se oscurece la cara de la letra detrás de su extrusión. Con letras huecas se
+// nota más; con letras sólidas conviene dejarlo bajo.
+uniform float face_shadow<
+    string label = "Sombra en la cara de la letra";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+> = 0.35;
 
 // Cada letra es un bloque 3D que se extiende desde la letra hacia la cámara, en unidades de
 // la distancia a la que el texto se ve a tamaño normal. 1 o más = el bloque rebasa la cámara.
@@ -181,31 +202,47 @@ float ease(float t)
     return t * t * (3.0 - 2.0 * t);
 }
 
-// Estado del texto en el instante q de la secuencia normal: x = distancia z (1 = tamaño
-// normal, z_far = horizonte), y = fracción de extrusión (0..1). La escala en pantalla es 1/z,
-// como en una perspectiva real. La secuencia inversa es esta misma con q = 1 - progreso.
-float2 stateAt(float q)
-{
-    float z = z_far;
-    float ext = 0.0;
-    if (q < 0.33) {
-        float u = seg(q, 0.03, 0.33);
-        z = lerp(z_far, 1.0, 1.0 - (1.0 - u) * (1.0 - u));      // llega y frena
-    } else if (q < 0.65) {
-        z = 1.0;
-        ext = ease(seg(q, 0.50, 0.65));                          // se extruye
-    } else {
-        float u = seg(q, 0.65, 0.97);
-        z = lerp(1.0, z_far, u * u);                             // arranca lento y acelera
-        ext = 1.0;
-    }
-    return float2(z, ext);
-}
-
-// 0 cerca, 1 en el horizonte: controla el desenfoque y el desvanecido
+// 0 cerca, 1 en el horizonte: desvanecido de la llegada desde el punto de fuga
 float horizonAt(float z)
 {
     return smoothstep(z_far * fade_start, z_far * 0.97, z);
+}
+
+// Estado del texto en el instante p. Devuelve:
+//   x = distancia z (1 = tamaño normal; la escala en pantalla es 1/z, como en perspectiva real)
+//   y = extrusión (0..1)
+//   z = visibilidad (0..1)
+//   w = fase de salida del modo inverso (0..1): desenfoque y cambio de color
+//
+// Normal: llega desde el punto de fuga, se queda, se extruye hacia la cámara y la letra sigue
+// a su extrusión hasta rebasar la cámara.
+float4 stateNormal(float p)
+{
+    if (p < 0.30) {
+        float u = seg(p, 0.03, 0.30);
+        float z = lerp(z_far, 1.0, 1.0 - (1.0 - u) * (1.0 - u));   // llega y frena
+        return float4(z, 0.0, 1.0 - horizonAt(z), 0.0);
+    }
+    if (p < 0.62)
+        return float4(1.0, ease(seg(p, 0.45, 0.62)), 1.0, 0.0);
+    float u = seg(p, 0.62, 0.97);
+    // z baja en línea recta: en perspectiva la letra crece cada vez más rápido
+    return float4(lerp(1.0, 0.02, u), 1.0, 1.0 - smoothstep(0.85, 1.0, u), 0.0);
+}
+
+// Inverso: llega desde la cámara con la extrusión detrás, la extrusión se retrae, se queda y
+// se aleja sin llegar al punto de fuga: se desenfoca, pasa a naranja, luego a azul y se va.
+float4 stateReverse(float p)
+{
+    if (p < 0.35) {
+        float u = seg(p, 0.03, 0.35);
+        float z = lerp(0.02, 1.0, 1.0 - (1.0 - u) * (1.0 - u));   // llega y frena
+        return float4(z, 1.0, smoothstep(0.0, 0.15, u), 0.0);
+    }
+    if (p < 0.62)
+        return float4(1.0, 1.0 - ease(seg(p, 0.35, 0.50)), 1.0, 0.0);
+    float u = seg(p, 0.62, 0.97);
+    return float4(lerp(1.0, fade_dist, u), 0.0, 1.0 - smoothstep(0.6, 1.0, u), u);
 }
 
 float4 textAt(float2 tc)
@@ -282,11 +319,11 @@ float4 mainImage(VertData v_in) : TARGET
     float2 px = uv_pixel_interval;
 
     float p = auto_play ? frac(t / max(duration, 0.5)) : saturate(progress * 0.01);
-    float2 st = stateAt(reverse ? 1.0 - p : p);
+    float4 st = reverse ? stateReverse(p) : stateNormal(p);
     float z = st.x;
     float s = 1.0 / z;
-    float hz = horizonAt(z);
-    float fade = 1.0 - hz;
+    float fade = st.z;
+    float out_phase = st.w;
     // Giro del texto al extruirse, solo si la extrusión se desvía arriba/abajo. Se rota en
     // pixeles para no deformar con la proporción de la pantalla.
     float ang = radians(roll) * pass_dir * st.y;
@@ -296,7 +333,7 @@ float4 mainImage(VertData v_in) : TARGET
     float2 rel = float2(ca * rp.x + sa * rp.y, -sa * rp.x + ca * rp.y) / uv_size;
 
     float2 tc = vp + rel * z;
-    float4 src = textBlur(tc, hz * horizon_blur, s);
+    float4 src = textBlur(tc, out_phase * horizon_blur, s);
     float a = src.a;
     if (src.a > 0.0001)
         src.rgb /= src.a;    // de premultiplicado a color normal
@@ -350,24 +387,32 @@ float4 mainImage(VertData v_in) : TARGET
     chrome += exp(-band * band * 60.0) * sheen;
     float3 textCol = lerp(src.rgb, chrome, chrome_amount);
     // La cara de la letra queda en sombra detrás de su propia extrusión
-    textCol *= lerp(1.0, 0.3, st.y * saturate(extrude));
+    textCol *= 1.0 - face_shadow * st.y * saturate(extrude);
+
+    // Salida del modo inverso: pasa a naranja y luego a azul mientras se desenfoca
+    float tint_w = smoothstep(0.0, 0.3, out_phase);
+    float3 tint = lerp(color_warm.rgb, color_cool.rgb, smoothstep(0.35, 0.75, out_phase));
+    textCol = lerp(textCol, tint * (0.7 + 0.5 * L), tint_w);
+    float3 glowCol = lerp(color_light.rgb, tint, tint_w);
 
     // Resplandor: alfa promediado en un anillo alrededor del pixel
     float glow = 0.0;
     float gi = 0.0;
     for (int j = 0; j < 12; j++) {
-        float ang = gi * 0.5235988;
-        float2 go = float2(cos(ang), sin(ang)) * glow_size * px;
+        float ga = gi * 0.5235988;
+        float2 go = float2(cos(ga), sin(ga)) * glow_size * px;
         glow += alphaAt(vp + (rel + go) * z);
         gi += 1.0;
     }
     glow = glow / 12.0 * glow_strength * fade;
 
+    // Orden de capas: la extrusión está entre la letra y la cámara, así que el volumen y sus
+    // filos se dibujan encima de la cara (más tenue sobre ella, para que la letra se lea)
     float4 acc = stars ? float4(starfield(uv, vp, t), 1.0) : float4(0.0, 0.0, 0.0, 0.0);
-    acc = over(acc, color_light.rgb, saturate(glow) * (1.0 - a));
-    acc = over(acc, color_light.rgb * lerp(0.7, 1.1, vol), volume * 0.85 * (1.0 - a));
-    acc = over(acc, lerp(color_light.rgb, float3(1.0, 1.0, 1.0), 0.55), lines * (1.0 - a));
+    acc = over(acc, glowCol, saturate(glow) * (1.0 - a));
     acc = over(acc, textCol, a * fade);
+    acc = over(acc, color_light.rgb * lerp(0.7, 1.1, vol), volume * lerp(0.85, 0.35, a));
+    acc = over(acc, lerp(color_light.rgb, float3(1.0, 1.0, 1.0), 0.55), lines);
 
     return float4(acc.rgb / max(acc.a, 0.0001), acc.a);
 }
