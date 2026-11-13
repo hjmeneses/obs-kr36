@@ -89,6 +89,17 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 | Fondo de estrellas | Apagado = fondo transparente, para ponerlo encima de otra cosa |
 | Densidad / Velocidad de las estrellas | Cuántas estrellas hay y qué tan rápido se acercan |
 
+## Versión "región 4" (tarjetas modestas)
+
+`titulos-voladores-r4.shader` es una versión ligera para GPUs como la GTX 1650 Ti, sobre todo si la misma tarjeta codifica con NVENC. Usa ~15 lecturas de textura por pixel en vez de ~190:
+
+- Solo estilo Kodalith, sin cromo.
+- La estela usa 6, 8 u 12 copias (selector **Copias de la estela**) con una lectura cada una.
+- El grano de la estela cambia en cada cuadro, como grano de película, para que pocas copias se vean como muchas.
+- En los créditos finales el contorno se ensancha en vez de desenfocarse.
+
+Tiene los mismos efectos, tiempos y nombres de parámetros, así que puedes cambiar entre las dos versiones sin perder ajustes. `intro-control.lua` también la reconoce. Para aligerarla más, pon antes del shader un filtro **Escalado/Relación de aspecto** a 960×540 en la escena anidada.
+
 ## Disparar la secuencia con un hotkey (script)
 
 `intro-control.lua` apaga el bucle y mueve el Progreso de 0 a 100 en la duración del filtro.
@@ -155,6 +166,10 @@ Enable **CinemaScope 2.35:1** for black bars: the original titles were anamorphi
 | color_warm / color_cool | The orange and diffuse blue of the closing-credits fade |
 | Volume brightness / Edge brightness / Letter face shadow / Chrome / Bevel / Sheen | Solid chrome style only |
 | Starfield background | Off = transparent background, to overlay on something else |
+
+### "Region 4" version (modest cards)
+
+`en/flying-titles-r4.shader` is a light version for GPUs such as the GTX 1650 Ti, especially when the same card encodes with NVENC. It uses ~15 texture reads per pixel instead of ~190: Kodalith only, 6/8/12 streak copies (**Streak copies** select) with one read each, grain that changes every frame like film grain, and a widening outline instead of a blur on the closing credits. Same effects, timings and parameter names, and `intro-control.lua` recognizes it. To lighten it further, add a **Scaling/Aspect Ratio** filter at 960×540 before the shader on the nested scene.
 
 ### Hotkey (script)
 
