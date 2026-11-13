@@ -49,7 +49,14 @@ Se eligen en el selector **Efecto**. Los porcentajes son del slider *Progreso*.
 |---|---|
 | 3–97 % | Nace en el centro con estelas hacia el espectador desde el primer instante y avanza hasta llenar el cuadro antes de desvanecerse |
 
-**Tip:** las letras de la película son un contorno delgado. Para lograrlo, en la fuente de texto de OBS activa el contorno y deja el relleno transparente: la estela saldrá del contorno, como en el original.
+## Estilos
+
+| Estilo | Cómo se ve |
+|---|---|
+| **Kodalith** (por defecto) | Como en la película. R/Greenberg encimaba un negativo y un positivo Kodalith de la letra con un gel azul en medio, así que solo pasaba luz por el **contorno**. Con el obturador abierto, esa luz se acumulaba: los bordes que corren en la dirección del movimiento dejan líneas brillantes y los atravesados, láminas tenues. El shader genera el contorno solo a partir de texto sólido. |
+| **Cromo sólido** | Letra rellena con bisel de cromo y un volumen translúcido detrás. |
+
+Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos originales eran anamórficos.
 
 ## Parámetros
 
@@ -58,13 +65,16 @@ Se eligen en el selector **Efecto**. Los porcentajes son del slider *Progreso*.
 | Reproducir en bucle / Duración / Progreso | Bucle automático, o control manual de la secuencia |
 | Punto de fuga X/Y | Hacia dónde llegan y se alejan las letras |
 | Efecto | Créditos iniciales, créditos finales o escudo |
+| Estilo | Kodalith (contorno de luz) o cromo sólido |
+| Kodalith: grosor del contorno / exposición de la estela | Ancho de la línea de luz y cuánta luz acumula la estela |
+| Formato CinemaScope 2.35:1 | Franjas negras arriba y abajo |
 | Distancia del horizonte / Aparición desde el horizonte | Desde qué tan lejos llegan las letras (iniciales y escudo) y desde qué distancia empiezan a verse |
 | Largo de la extrusión hacia la cámara | Qué tan larga es la estela (0 = sin estela; 1 o más = rebasa la cámara) |
 | Pasa por arriba (−) / abajo (+) | 0 = la estela va directo a la cámara; negativo pasa por encima, positivo por debajo |
 | Rotación al pasar arriba/abajo | Cuánto gira el texto con la estela; es proporcional al desvío, así que yendo directo a la cámara no gira |
-| Brillo del volumen | Qué tan luminoso es el volumen translúcido de la estela |
-| Brillo / Grosor de los filos | Las líneas brillantes donde un borde de la letra queda alineado con la estela |
-| Sombra en la cara de la letra | Cuánto se oscurece la letra detrás de su estela; bajo para letras sólidas, alto para letras huecas |
+| Brillo del volumen | Cromo: qué tan luminoso es el volumen translúcido de la estela |
+| Brillo / Grosor de los filos | Cromo: las líneas brillantes donde un borde de la letra queda alineado con la estela |
+| Sombra en la cara de la letra | Cromo: cuánto se oscurece la letra detrás de su estela |
 | Finales: distancia / desenfoque al apagarse | Hasta dónde se alejan las letras y cuánto se desenfocan |
 | color_warm / color_cool | El naranja y el azul difuso por los que pasan al apagarse en los créditos finales |
 | Cromo | 1 = cromo azul; 0 = conserva los colores del texto |
@@ -87,7 +97,7 @@ Se eligen en el selector **Efecto**. Los porcentajes son del slider *Progreso*.
 
 ## English
 
-Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters leave open-shutter light streaks toward the camera, over a moving starfield. Three effects: opening credits (letters arrive clean from the vanishing point, hold, then streak past the camera), closing credits (letters arrive from behind the camera with streaks ahead of them, hold, then recede clean, blurring from blue to orange and back to blue before fading out) and emblem (a logo streaks from the center until it fills the frame).
+Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters leave open-shutter light streaks toward the camera, over a moving starfield. Three effects: opening credits (letters arrive clean from the vanishing point, hold, then streak past the camera), closing credits (letters arrive from behind the camera with streaks ahead of them, hold, then recede clean, blurring from blue to orange and back to blue before fading out) and emblem (a logo streaks from the center until it fills the frame). The default Kodalith style recreates the original technique: only the letter outline lets light through, and the open shutter accumulates that light into streaks. Optional 2.35:1 letterbox.
 
 Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the extrusion and stars to the text box). Parameter labels are in Spanish.
 

@@ -27,8 +27,9 @@
 //   3–97   Nace en el centro con estelas hacia el espectador desde el primer instante y avanza
 //          hasta llenar el cuadro antes de desvanecerse.
 //
-// Tip: para el contorno delgado de las letras de la película, usa en la fuente de texto de
-// OBS un contorno con el relleno transparente; la estela saldrá del contorno.
+// Estilo Kodalith (por defecto): recrea la técnica de R/Greenberg. El contorno de luz azul se
+// genera solo a partir de texto sólido, y la estela es la luz que el contorno acumula con el
+// obturador abierto.
 
 uniform bool auto_play<
     string label = "Reproducir en bucle (ignora Progreso)";
@@ -150,6 +151,36 @@ uniform float line_width<
     string widget_type = "slider";
     float minimum = 0.5; float maximum = 6.0; float step = 0.1;
 > = 1.5;
+
+// Kodalith: como en la película. Un negativo y un positivo de la letra encimados con un gel azul
+// en medio solo dejan pasar luz en el contorno, y con el obturador abierto la luz se acumula
+// en la película: los bordes que corren en la dirección del movimiento dan líneas brillantes y
+// los atravesados, láminas tenues. Cromo: letra sólida con bisel y volumen translúcido.
+uniform int style<
+    string label = "Estilo";
+    string widget_type = "select";
+    int    option_0_value = 0;
+    string option_0_label = "Kodalith (contorno de luz, como la pelicula)";
+    int    option_1_value = 1;
+    string option_1_label = "Cromo solido";
+> = 0;
+
+uniform float kodalith_width<
+    string label = "Kodalith: grosor del contorno (px)";
+    string widget_type = "slider";
+    float minimum = 0.5; float maximum = 8.0; float step = 0.1;
+> = 2.0;
+
+// Cuánta luz acumula la estela. Las líneas se saturan a casi blanco; las láminas quedan tenues.
+uniform float exposure<
+    string label = "Kodalith: exposicion de la estela";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 20.0; float step = 0.1;
+> = 6.0;
+
+uniform bool letterbox<
+    string label = "Formato CinemaScope 2.35:1 (franjas negras)";
+> = false;
 
 // 1 = cromo azul; 0 = conserva los colores originales del texto.
 uniform float chrome_amount<
@@ -294,6 +325,15 @@ float alphaAt(float2 tc)
     return textAt(tc).a;
 }
 
+// Contorno de la letra, como el sándwich Kodalith: 1 en el borde, 0 dentro y fuera.
+// o = medio ancho del contorno en uv (x e y por separado por la proporción de la pantalla).
+float outlineAt(float2 tc, float2 o)
+{
+    float gx = alphaAt(tc + float2(o.x, 0.0)) - alphaAt(tc - float2(o.x, 0.0));
+    float gy = alphaAt(tc + float2(0.0, o.y)) - alphaAt(tc - float2(0.0, o.y));
+    return saturate(abs(gx) + abs(gy));
+}
+
 // Texto desenfocado en un disco de radio r (en pixeles de pantalla) a escala s.
 // Devuelve color premultiplicado por alfa, para que los bordes transparentes no ensucien.
 float4 textBlur(float2 tc, float r, float s)
@@ -388,10 +428,63 @@ float4 mainImage(VertData v_in) : TARGET
     // grano fino parecido al slit-scan de la película.
     float dy = pass_dir * 0.6;
     float ratio = z_other / z;
-    // Las aristas del bloque convergen en (0, -dy) respecto al punto de fuga
+    float jit = hash12(floor(uv * uv_size));
+    bool has_streak = abs(ratio - 1.0) >= 0.001;
+
+    // Franjas negras de CinemaScope: fuera de la banda central de 2.35:1 no hay imagen
+    float band_half = uv_size.x / 2.35 * 0.5;
+    float in_band = letterbox ? step(abs(uv.y - 0.5) * uv_size.y, band_half) : 1.0;
+
+    // Salida de los créditos finales: del azul pasa a naranja y vuelve a un azul difuso
+    float tint_w = smoothstep(0.0, 0.3, out_phase);
+    float3 tint = lerp(color_warm.rgb, color_cool.rgb, smoothstep(0.4, 0.8, out_phase));
+
+    float3 bg = stars ? starfield(uv, vp, t) : float3(0.0, 0.0, 0.0);
+
+    if (style == 0) {
+        // Kodalith: todo es luz que se suma sobre el negro, como en la copiadora óptica.
+        // El desenfoque ensancha el contorno y reparte la misma luz en más ancho.
+        float w = kodalith_width + out_phase * horizon_blur;
+        float face = outlineAt(tc, w * px * z) * (kodalith_width / w);
+
+        // Estela: luz acumulada del contorno en cada instante de la exposición
+        float light = 0.0;
+        if (has_streak) {
+            float kf = 0.0;
+            for (int i = 0; i < 40; i++) {
+                float k = (kf + jit) / 40.0;
+                float zk = z * exp2(k * log2(ratio));
+                float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
+                light += outlineAt(tck, kodalith_width * px * zk) * lerp(1.0, 0.6, k);
+                kf += 1.0;
+            }
+            light = light / 40.0 * exposure;
+        }
+
+        // Halo junto a los bordes, por dentro y por fuera (4·m·(1-m) es máximo en el borde)
+        float m = 0.0;
+        float gk = 0.0;
+        for (int j = 0; j < 12; j++) {
+            float ga = gk * 0.5235988;
+            m += alphaAt(vp + (rel + float2(cos(ga), sin(ga)) * glow_size * px) * z);
+            gk += 1.0;
+        }
+        m /= 12.0;
+        float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
+
+        float3 lc = lerp(color_light.rgb, tint, tint_w);
+        float v = (face * 1.5 + light) * fade;
+        // Donde la luz se satura, la película "quema" hacia blanco
+        float3 col = lc * (v + halo * fade * 0.5) + saturate(v - 1.0) * 0.6;
+        col *= in_band;
+        float3 rgb = bg * in_band + col;
+        float alpha = stars ? 1.0 : saturate(max(col.r, max(col.g, col.b)));
+        return float4(stars ? rgb : rgb / max(alpha, 0.0001), alpha);
+    }
+
+    // Cromo sólido: las aristas del bloque convergen en (0, -dy) respecto al punto de fuga
     float2 rd = normalize((rel + float2(0.0, dy)) * uv_size + float2(0.0001, 0.0));
     float2 tp = float2(-rd.y, rd.x) * line_width * px;    // perpendicular a la arista, en uv
-    float jit = hash12(floor(uv * uv_size));
 
     float vol = 0.0;
     float edges = 0.0;
@@ -432,10 +525,6 @@ float4 mainImage(VertData v_in) : TARGET
     if (streak_in_front)
         textCol *= 1.0 - face_shadow * streak;
 
-    // Salida de los créditos finales: del cromo azul pasa a naranja y vuelve a un azul difuso
-    // mientras se desenfoca
-    float tint_w = smoothstep(0.0, 0.3, out_phase);
-    float3 tint = lerp(color_warm.rgb, color_cool.rgb, smoothstep(0.4, 0.8, out_phase));
     textCol = lerp(textCol, tint * (0.7 + 0.5 * L), tint_w);
     float3 glowCol = lerp(color_light.rgb, tint, tint_w);
 
@@ -451,7 +540,11 @@ float4 mainImage(VertData v_in) : TARGET
     // El halo crece al desenfocarse, como la luz dispersa a lo lejos
     glow = glow / 12.0 * glow_strength * fade * (1.0 + out_phase);
 
-    float4 acc = stars ? float4(starfield(uv, vp, t), 1.0) : float4(0.0, 0.0, 0.0, 0.0);
+    float4 acc = stars ? float4(bg * in_band, 1.0) : float4(0.0, 0.0, 0.0, 0.0);
+    a *= in_band;
+    volume *= in_band;
+    lines *= in_band;
+    glow *= in_band;
     acc = over(acc, glowCol, saturate(glow) * (1.0 - a));
     float3 volCol = color_light.rgb * lerp(0.7, 1.1, vol);
     float3 lineCol = lerp(color_light.rgb, float3(1.0, 1.0, 1.0), 0.55);
