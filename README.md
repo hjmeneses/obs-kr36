@@ -1,8 +1,8 @@
 # obs-kr36
 
-*Chrome titles that fly in from deep space, extrude toward the horizon and fade away, for OBS.*
+*Chrome titles that fly in from deep space, extrude toward the camera and fade away at the horizon, for OBS.*
 
-Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que llegan desde el fondo del espacio, se extruyen como bloques de luz hacia el punto de fuga y se alejan hasta desenfocarse y desvanecerse en el horizonte, sobre un campo de estrellas en movimiento.
+Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que llegan desde el fondo del espacio, se extruyen como bloques de luz hacia la cámara y se alejan hasta desenfocarse y desvanecerse en el horizonte, sobre un campo de estrellas en movimiento.
 
 *[English below](#english)*
 
@@ -30,7 +30,7 @@ Hay dos modos; el inverso es exactamente la secuencia normal al revés.
 |---|---|---|
 | 3–33 % | El texto plano llega desde el horizonte | Llega desde el horizonte ya extruido |
 | 33–50 % | Se queda a tamaño normal; un brillo lo cruza | La extrusión se retrae |
-| 50–65 % | Se extruye hacia el punto de fuga | Se queda plano a tamaño normal |
+| 50–65 % | Se extruye hacia la cámara | Se queda plano a tamaño normal |
 | 65–97 % | El bloque se aleja, se desenfoca y se desvanece | Se aleja plano, se desenfoca y se desvanece |
 
 ## Parámetros
@@ -38,13 +38,15 @@ Hay dos modos; el inverso es exactamente la secuencia normal al revés.
 | Parámetro | Efecto |
 |---|---|
 | Reproducir en bucle / Duración / Progreso | Bucle automático, o control manual de la secuencia |
-| Punto de fuga X/Y | Desde dónde llega el texto y hacia dónde apunta la extrusión |
+| Punto de fuga X/Y | Desde dónde llega el texto y hacia dónde se aleja |
 | Distancia del horizonte | Qué tan lejos está el horizonte (40 = ahí el texto mide 1/40 de su tamaño) |
 | Inverso | Llega extruido y se aleja plano, en lugar de llegar plano y alejarse extruido |
 | Desenfoque en el horizonte / Inicio del desvanecido | Cuánto se desenfoca el texto al llegar al horizonte y desde qué distancia empieza a desvanecerse |
-| Profundidad de la extrusión | Cada letra es un bloque 3D que se extiende hacia el punto de fuga (0 = letra plana, 0.9 = casi hasta el fondo) |
+| Largo de la extrusión hacia la cámara | Cada letra es un bloque 3D que sale de la letra hacia el espectador (0 = plana; 1 o más = el bloque rebasa la cámara) |
+| Pasa por arriba (−) / abajo (+) | 0 = la extrusión va directo a la cámara; negativo pasa por encima, positivo por debajo |
+| Rotación al pasar arriba/abajo | Cuánto gira el texto al extruirse; es proporcional al desvío, así que yendo directo a la cámara no gira |
 | Brillo del volumen | Qué tan luminoso es el bloque translúcido de la extrusión |
-| Brillo / Grosor de los filos | Las líneas brillantes donde un borde de la letra apunta al punto de fuga |
+| Brillo / Grosor de los filos | Las líneas brillantes donde un borde de la letra queda alineado con la extrusión |
 | Cromo | 1 = cromo azul; 0 = conserva los colores del texto |
 | color_deep / color_light | Los dos tonos del cromo, también usados en la extrusión y el resplandor |
 | Bisel del cromo | Grosor del filo iluminado de las letras |
@@ -65,7 +67,7 @@ Hay dos modos; el inverso es exactamente la secuencia normal al revés.
 
 ## English
 
-Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters fly in from deep space, extrude as glowing blocks toward the vanishing point and recede until they blur and fade at the horizon, over a moving starfield. A reverse mode plays the same sequence backwards.
+Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chrome letters fly in from deep space, extrude as glowing blocks toward the camera (straight at it, or passing above or below) and recede until they blur and fade at the horizon, over a moving starfield. A reverse mode plays the same sequence backwards.
 
 Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the extrusion and stars to the text box). Parameter labels are in Spanish.
 

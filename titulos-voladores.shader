@@ -1,5 +1,5 @@
 // Títulos voladores: letras de cromo azul que llegan desde el fondo del espacio, se extruyen
-// como bloques 3D hacia el punto de fuga y se alejan hasta perderse en el horizonte. Estilo
+// como bloques 3D hacia la cámara y se alejan hasta perderse en el horizonte. Estilo
 // créditos de películas de superhéroes de los 70, para OBS Studio (plugin obs-shaderfilter,
 // modo "User-defined shader").
 //
@@ -11,7 +11,7 @@
 // Secuencia normal (Progreso 0 → 100), "salto al hiperespacio":
 //   3–33   El texto plano llega desde el horizonte hasta su tamaño normal.
 //   33–50  Se queda frente a la cámara, con un brillo que lo cruza.
-//   50–65  Se extruye hacia el punto de fuga.
+//   50–65  Se extruye hacia la cámara (directo, o pasando por arriba o por abajo).
 //   65–97  El bloque se aleja; cerca del horizonte se desenfoca y se desvanece.
 // Secuencia inversa: la misma al revés. Llega como bloque extruido, la extrusión se retrae al
 // alcanzar su tamaño normal, se queda y se aleja plano hasta desvanecerse.
@@ -69,13 +69,28 @@ uniform float fade_start<
     float minimum = 0.05; float maximum = 0.95; float step = 0.01;
 > = 0.3;
 
-// Cada letra es un bloque 3D que se extiende hacia el punto de fuga. 0 = letra plana;
-// 0.9 = la extrusión llega casi hasta el punto de fuga, como en los créditos de la película.
+// Cada letra es un bloque 3D que se extiende desde la letra hacia la cámara, en unidades de
+// la distancia a la que el texto se ve a tamaño normal. 1 o más = el bloque rebasa la cámara.
 uniform float extrude<
-    string label = "Profundidad de la extrusion";
+    string label = "Largo de la extrusion hacia la camara";
     string widget_type = "slider";
-    float minimum = 0.0; float maximum = 0.98; float step = 0.01;
-> = 0.9;
+    float minimum = 0.0; float maximum = 2.0; float step = 0.01;
+> = 1.2;
+
+// 0 = la extrusión va directo a la cámara; negativo = pasa por arriba; positivo = por abajo.
+uniform float pass_dir<
+    string label = "Pasa por arriba (-) / abajo (+)";
+    string widget_type = "slider";
+    float minimum = -1.0; float maximum = 1.0; float step = 0.01;
+> = 0.0;
+
+// Giro del texto mientras se extruye. Es proporcional a "Pasa por arriba/abajo", así que
+// yendo directo a la cámara no gira.
+uniform float roll<
+    string label = "Rotacion al pasar arriba/abajo (grados)";
+    string widget_type = "slider";
+    float minimum = -20.0; float maximum = 20.0; float step = 0.1;
+> = 6.0;
 
 uniform float volume_strength<
     string label = "Brillo del volumen";
@@ -83,8 +98,8 @@ uniform float volume_strength<
     float minimum = 0.0; float maximum = 2.0; float step = 0.01;
 > = 0.8;
 
-// Líneas brillantes en los filos de la extrusión (donde un borde de la letra apunta al
-// punto de fuga).
+// Líneas brillantes en los filos de la extrusión (donde un borde de la letra queda alineado
+// con la dirección en que se extruye).
 uniform float line_strength<
     string label = "Brillo de los filos";
     string widget_type = "slider";
@@ -272,36 +287,47 @@ float4 mainImage(VertData v_in) : TARGET
     float s = 1.0 / z;
     float hz = horizonAt(z);
     float fade = 1.0 - hz;
-    float2 tc = vp + (uv - vp) / s;
+    // Giro del texto al extruirse, solo si la extrusión se desvía arriba/abajo. Se rota en
+    // pixeles para no deformar con la proporción de la pantalla.
+    float ang = radians(roll) * pass_dir * st.y;
+    float ca = cos(ang);
+    float sa = sin(ang);
+    float2 rp = (uv - vp) * uv_size;
+    float2 rel = float2(ca * rp.x + sa * rp.y, -sa * rp.x + ca * rp.y) / uv_size;
+
+    float2 tc = vp + rel * z;
     float4 src = textBlur(tc, hz * horizon_blur, s);
     float a = src.a;
     if (src.a > 0.0001)
         src.rgb /= src.a;    // de premultiplicado a color normal
 
-    // Extrusión: la letra repetida a escalas cada vez menores hacia el punto de fuga forma un
-    // bloque 3D. Las escalas se reparten en progresión geométrica (pasos parejos en
-    // perspectiva) y con un desfase aleatorio por pixel, que cambia el bandeo de copias por
-    // un grano fino parecido al slit-scan de la película.
-    // Profundidad real del bloque: a tamaño normal su cara trasera queda a (1 - extrude) de la
-    // escala; al alejarse, la perspectiva acorta la extrusión sola.
-    float depth = st.y * (1.0 / (1.0 - extrude) - 1.0);
-    float ratio = clamp(z / (z + depth), 0.02, 1.0);
-    float2 rd = normalize((uv - vp) * uv_size + float2(0.0001, 0.0));
-    float2 tp = float2(-rd.y, rd.x) * line_width * px;    // perpendicular al rayo, en uv
+    // Extrusión hacia la cámara: la letra está en z y el bloque llega hasta zn (más cerca, más
+    // grande). Cada muestra es una copia de la letra a la profundidad zk, desplazada en
+    // vertical según "Pasa por arriba/abajo". Para la copia a distancia d de la letra, el
+    // punto de pantalla q viene de q = (X + desvío·d) / zk, así que X = q·zk - desvío·d.
+    // Las profundidades van en progresión geométrica (pasos parejos en perspectiva) con un
+    // desfase aleatorio por pixel, que cambia el bandeo de copias por un grano fino parecido
+    // al slit-scan de la película.
+    float dy = pass_dir * 0.6;
+    float zn = max(z - st.y * extrude, 0.02);
+    float ratio = zn / z;
+    // Las aristas del bloque convergen en (0, -dy) respecto al punto de fuga
+    float2 rd = normalize((rel + float2(0.0, dy)) * uv_size + float2(0.0001, 0.0));
+    float2 tp = float2(-rd.y, rd.x) * line_width * px;    // perpendicular a la arista, en uv
     float jit = hash12(floor(uv * uv_size));
 
     float vol = 0.0;
     float edges = 0.0;
     float fi = 0.0;
     for (int i = 0; i < 40; i++) {
-        float k = (fi + jit) / 40.0;                       // 0 = cara frontal, 1 = fondo
-        float sk = s * pow(ratio, k);
-        float2 tck = vp + (uv - vp) / sk;
-        // Más claro hacia el fondo: la luz parece salir del punto de fuga
-        vol = max(vol, alphaAt(tck) * lerp(0.55, 1.0, k));
-        // Filo: un borde de la letra paralelo al rayo se cruza en todas las muestras y suma
-        // una línea brillante; un borde atravesado solo suma una muestra
-        float2 off = tp / sk;
+        float k = (fi + jit) / 40.0;                       // 0 = letra, 1 = extremo cercano
+        float zk = z * exp2(k * log2(ratio));              // ratio^k (ratio siempre > 0)
+        float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
+        // Más claro junto a la letra, más oscuro en el extremo que se acerca a la cámara
+        vol = max(vol, alphaAt(tck) * lerp(1.0, 0.6, k));
+        // Filo: un borde de la letra alineado con la arista se cruza en todas las muestras y
+        // suma una línea brillante; un borde atravesado solo suma una muestra
+        float2 off = tp * zk;
         edges += abs(alphaAt(tck + off) - alphaAt(tck - off));
         fi += 1.0;
     }
@@ -323,6 +349,8 @@ float4 mainImage(VertData v_in) : TARGET
     float band = uv.x + uv.y * 0.5 - (frac(t * 0.15) * 2.5 - 0.5);
     chrome += exp(-band * band * 60.0) * sheen;
     float3 textCol = lerp(src.rgb, chrome, chrome_amount);
+    // La cara de la letra queda en sombra detrás de su propia extrusión
+    textCol *= lerp(1.0, 0.3, st.y * saturate(extrude));
 
     // Resplandor: alfa promediado en un anillo alrededor del pixel
     float glow = 0.0;
@@ -330,7 +358,7 @@ float4 mainImage(VertData v_in) : TARGET
     for (int j = 0; j < 12; j++) {
         float ang = gi * 0.5235988;
         float2 go = float2(cos(ang), sin(ang)) * glow_size * px;
-        glow += alphaAt(vp + (uv + go - vp) / s);
+        glow += alphaAt(vp + (rel + go) * z);
         gi += 1.0;
     }
     glow = glow / 12.0 * glow_strength * fade;
