@@ -1,5 +1,5 @@
 --[[
-  intro-control.lua — reproduce una vez la secuencia de obs-flying-titles
+  intro-control.lua — reproduce una vez la secuencia de obs-kr36
   (titulos-voladores.shader) con un botón o un hotkey.
 
   Por qué hace falta: el shader solo conoce el tiempo desde que se creó el filtro, así que por
@@ -8,13 +8,13 @@
 
   Uso: Herramientas → Scripts → "+" → elige este archivo. Elige el filtro en la lista y
   presiona "Reproducir". Para un hotkey: Configuración → Atajos de teclado →
-  "Reproducir intro (obs-flying-titles)".
+  "Reproducir intro (obs-kr36)".
 ]]
 
 obs = obslua
 
 local SHADER_FILTER_ID = "shader_filter"
-local SHADER_PATTERN = { "titulos%-voladores", "flying%-titles" }
+local SHADER_PATTERN = { "titulos%-voladores", "kr36" }
 local TICK_MS = 16
 
 local g_target = ""
@@ -162,7 +162,7 @@ end
 ---------------------------------------------------------------------------
 
 function script_description()
-    return "Reproduce una vez los títulos de <b>obs-flying-titles</b> (titulos-voladores.shader) " ..
+    return "Reproduce una vez los títulos de <b>obs-kr36</b> (titulos-voladores.shader) " ..
            "con un botón o un hotkey. Apaga el bucle del filtro y anima su Progreso de 0 a 100."
 end
 
@@ -187,16 +187,16 @@ end
 
 function script_load(settings)
     g_target = obs.obs_data_get_string(settings, "target") or ""
-    g_hotkey = obs.obs_hotkey_register_frontend("obs_flying_titles_play", "Reproducir intro (obs-flying-titles)",
+    g_hotkey = obs.obs_hotkey_register_frontend("obs_kr36_play", "Reproducir intro (obs-kr36)",
         function(pressed) if pressed then play() end end)
-    local saved = obs.obs_data_get_array(settings, "obs_flying_titles_play")
+    local saved = obs.obs_data_get_array(settings, "obs_kr36_play")
     obs.obs_hotkey_load(g_hotkey, saved)
     obs.obs_data_array_release(saved)
 end
 
 function script_save(settings)
     local saved = obs.obs_hotkey_save(g_hotkey)
-    obs.obs_data_set_array(settings, "obs_flying_titles_play", saved)
+    obs.obs_data_set_array(settings, "obs_kr36_play", saved)
     obs.obs_data_array_release(saved)
 end
 

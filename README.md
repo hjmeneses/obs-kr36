@@ -1,4 +1,4 @@
-# obs-flying-titles
+# obs-kr36
 
 *Chrome titles that fly in from deep space with light streaks, for OBS.*
 
@@ -53,7 +53,7 @@ Para varios créditos seguidos, haz una escena por crédito o cambia el texto en
 
 1. **Herramientas → Scripts → +** y elige `intro-control.lua`.
 2. En **Filtro de títulos** elige tu filtro (si no aparece, **Actualizar lista**).
-3. Presiona **Reproducir**, o asigna un atajo en **Configuración → Atajos de teclado → Reproducir intro (obs-flying-titles)**.
+3. Presiona **Reproducir**, o asigna un atajo en **Configuración → Atajos de teclado → Reproducir intro (obs-kr36)**.
 
 ---
 
@@ -63,7 +63,7 @@ Shader for **OBS Studio** inspired by late-70s superhero movie credits: blue chr
 
 Put your text in its own scene, nest that scene in your main scene and add a **User-defined shader** filter to the nested scene with `titulos-voladores.shader` (applying it straight to the text source clips the streaks and stars to the text box). Parameter labels are in Spanish.
 
-To trigger the sequence once with a hotkey, load `intro-control.lua` (**Tools → Scripts**), pick the filter and press *Reproducir*, or bind *Reproducir intro (obs-flying-titles)* under **Settings → Hotkeys**.
+To trigger the sequence once with a hotkey, load `intro-control.lua` (**Tools → Scripts**), pick the filter and press *Reproducir*, or bind *Reproducir intro (obs-kr36)* under **Settings → Hotkeys**.
 
 Not affiliated with or endorsed by any film studio or comic publisher.
 
