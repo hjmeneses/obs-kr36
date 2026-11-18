@@ -515,6 +515,22 @@ float3 anamorphicFlare(float2 uv, float2 vp, float ca, float sa, float z, float 
     float I = flare_strength * fade * (E * (0.35 + 0.6 * streak) + tail * 1.2 + hot);
     return flare_color.rgb * prof * I;
 }
+// Halo: alfa promedio en 8 puntos sobre dos anillos (a media distancia y a la distancia
+// completa). El patrón gira al azar por pixel y por cuadro: así las copias desplazadas de la
+// letra no forman bordes dobles en las esquinas y el resplandor queda redondo.
+float haloAt(float2 tc, float2 r, float jit)
+{
+    float m = 0.0;
+    float a0 = jit * 1.5707963;
+    float fi = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float a = a0 + fi * 0.7853982;
+        float rr = (i == 0 || i == 2 || i == 4 || i == 6) ? 0.5 : 1.0;
+        m += alphaAt(tc + float2(cos(a), sin(a)) * r * rr);
+        fi += 1.0;
+    }
+    return m * 0.125;
+}
 float4 mainImage(VertData v_in) : TARGET
 {
     float2 uv = v_in.uv;
@@ -609,14 +625,7 @@ float4 mainImage(VertData v_in) : TARGET
         bg *= 1.0 - fill_cover * extra;
 
         // Halo junto a los bordes, por dentro y por fuera (4·m·(1-m) es máximo en el borde)
-        float m = 0.0;
-        float gk = 0.0;
-        for (int j = 0; j < 8; j++) {
-            float ga = gk * 0.7853982;
-            m += alphaAt(vp + (rel + float2(cos(ga), sin(ga)) * glow_size * px) * z);
-            gk += 1.0;
-        }
-        m /= 8.0;
+        float m = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0)));
         float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
         float3 lc = lerp(color_light.rgb, tint, tint_w);
@@ -679,14 +688,7 @@ float4 mainImage(VertData v_in) : TARGET
     float3 glowCol = lerp(color_light.rgb, tint, tint_w);
 
     // Resplandor: alfa promediado en un anillo alrededor del pixel
-    float glow = 0.0;
-    float gi = 0.0;
-    for (int j = 0; j < 8; j++) {
-        float ga = gi * 0.7853982;
-        float2 go = float2(cos(ga), sin(ga)) * glow_size * px;
-        glow += alphaAt(vp + (rel + go) * z);
-        gi += 1.0;
-    }
+    float glow = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0))) * 8.0;
     // El halo crece al desenfocarse, como la luz dispersa a lo lejos
     glow = glow / 8.0 * glow_strength * fade * (1.0 + out_phase);
 
