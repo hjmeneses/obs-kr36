@@ -33,9 +33,11 @@ Se eligen en el selector **Efecto**. Los porcentajes son del slider *Progreso*.
 | Progreso | Qué pasa |
 |---|---|
 | 3–30 % | Las letras llegan limpias desde el punto de fuga, sin estela |
-| 30–50 % | Pausa de lectura |
-| 50–80 % | La estela se dispara hacia la cámara y la rebasa (por defecto pasa un poco por encima) |
-| 80–97 % | Las letras siguen a su estela y se van |
+| 30 % – … | Pausa de lectura |
+| … – 80 % | La estela se dispara hacia la cámara y la rebasa (por defecto pasa un poco por encima). Dura lo que digas en *Tiempo antes de que las letras sigan a la extrusión*: medio segundo, 1 o 2 segundos |
+| 80–97 % | Justo cuando la estela llega a su máximo, las letras salen tras ella, ya en movimiento y sin pausa |
+
+La salida de las letras siempre empieza en el 80 %. Si acortas el tiempo de la extrusión, la pausa de lectura dura más; si quieres que toda la secuencia sea más corta, baja también la *Duración*.
 
 **Créditos finales**
 
@@ -74,6 +76,7 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 | Formato CinemaScope 2.35:1 | Franjas negras arriba y abajo |
 | Distancia del horizonte / Aparición desde el horizonte | Desde qué tan lejos llegan las letras (iniciales y escudo) y desde qué distancia empiezan a verse |
 | Largo de la extrusión hacia la cámara | Qué tan larga es la estela (0 = sin estela; 1 o más = rebasa la cámara) |
+| Tiempo antes de que las letras sigan a la extrusión | Créditos iniciales: cuánto dura la extrusión antes de que salgan las letras (medio segundo, 1 segundo o 2 segundos) |
 | Pasa por arriba (−) / abajo (+) | 0 = la estela va directo a la cámara; negativo pasa por encima, positivo por debajo |
 | Rotación al pasar arriba/abajo | Cuánto gira el texto con la estela; es proporcional al desvío, así que yendo directo a la cámara no gira |
 | Brillo del volumen | Cromo: qué tan luminoso es el volumen translúcido de la estela |
@@ -135,9 +138,9 @@ Pick one in the **Effect** select. Percentages refer to the *Progress* slider.
 | Progress | Opening credits | Closing credits |
 |---|---|---|
 | 3–30 % | Letters arrive clean from the vanishing point | Letters arrive from behind the camera with the streak ahead of them; it cuts off on arrival |
-| 30–50 % | Reading pause | Reading pause |
-| 50–80 % | The streak shoots toward the camera and passes it (slightly above by default) | They recede clean… |
-| 80–97 % | The letters follow their streak and leave | …and three quarters of the way they blur from blue to orange and back to blue, going out before the vanishing point |
+| 30–50 % | Reading pause (until 80 % minus the extrusion time) | Reading pause |
+| 50–80 % | The streak shoots toward the camera and passes it (slightly above by default). It lasts half a second, 1 or 2 seconds (*Time before letters follow the extrusion*) | They recede clean… |
+| 80–97 % | Right as the streak peaks, the letters leave after it, already moving, with no pause | …and three quarters of the way they blur from blue to orange and back to blue, going out before the vanishing point |
 
 **Emblem:** born at the center with streaks toward the viewer from the first frame, it advances until it fills the frame, then fades out.
 
@@ -160,6 +163,7 @@ Enable **CinemaScope 2.35:1** for black bars: the original titles were anamorphi
 | Streak opacity | 0–1: how much the streak covers the text (1 = it only reads during the pause, as in the film). 1–2: the streak gets more solid and hides the stars |
 | Quality | Streak samples: Low (8), Medium (16, default) or High (32). Lower it if OBS says the encoder is overloaded |
 | Extrusion length toward camera | Streak length (0 = none; 1 or more = passes the camera) |
+| Time before letters follow the extrusion | Opening credits: how long the extrusion runs before the letters leave (half a second, 1 or 2 seconds). Letters always leave at 80 %, so a shorter extrusion means a longer reading pause; lower *Sequence duration* to shorten the whole thing |
 | Pass above (−) / below (+) | 0 = straight at the camera; negative passes above, positive below |
 | Roll when passing above/below | How much the text rolls with the streak; proportional to the bend, so none when going straight |
 | Closing: fade-out distance / blur | How far the letters recede and how much they blur |

@@ -89,6 +89,17 @@ uniform float extrude<
     float minimum = 0.0; float maximum = 2.0; float step = 0.01;
 > = 1.2;
 
+uniform int follow_delay<
+    string label = "Tiempo antes de que las letras sigan a la extrusion";
+    string widget_type = "select";
+    int    option_0_value = 0;
+    string option_0_label = "Medio segundo";
+    int    option_1_value = 1;
+    string option_1_label = "1 segundo";
+    int    option_2_value = 2;
+    string option_2_label = "2 segundos";
+> = 1;
+
 uniform float pass_dir<
     string label = "Pasa por arriba (-) / abajo (+)";
     string widget_type = "slider";
@@ -184,24 +195,40 @@ float horizonAt(float z)
     return smoothstep(z_far * fade_start, z_far * 0.97, z);
 }
 
+float follow_seconds()
+{
+    return (follow_delay == 0) ? 0.5 : ((follow_delay == 2) ? 2.0 : 1.0);
+}
+
 // Estados: iguales a la versión completa (x = z de la letra, y = z del otro extremo de la
 // estela, z = visibilidad, w = fase de salida de los créditos finales)
 float4 stateOpening(float p)
 {
+    // Las letras salen siempre en 0.80; la extrusión empieza "Tiempo antes de que las letras
+    // sigan a la extrusión" segundos antes (sin invadir la llegada). Así el final no cambia y
+    // lo que se alarga o acorta es la pausa de lectura.
+    float p_follow = 0.80;
+    float p_ext = max(0.30, p_follow - follow_seconds() / max(duration, 0.5));
+    float zf = max(1.0 - extrude, 0.02);
+
     if (p < 0.30) {
         float u = seg(p, 0.03, 0.30);
-        float z = lerp(z_far, 1.0, 1.0 - (1.0 - u) * (1.0 - u));
+        float z = lerp(z_far, 1.0, 1.0 - (1.0 - u) * (1.0 - u));   // llega y frena
         return float4(z, z, 1.0 - horizonAt(z), 0.0);
     }
-    if (p < 0.50)
-        return float4(1.0, 1.0, 1.0, 0.0);
-    if (p < 0.80) {
-        float u = seg(p, 0.50, 0.80);
-        return float4(1.0, max(1.0 - u * u * extrude, 0.02), 1.0, 0.0);
+    if (p < p_ext)
+        return float4(1.0, 1.0, 1.0, 0.0);                         // pausa de lectura
+    if (p < p_follow) {
+        // El frente acelera y llega a su máximo justo cuando salen las letras (sin quedarse
+        // atorado antes)
+        float u = seg(p, p_ext, p_follow);
+        return float4(1.0, lerp(1.0, zf, u * u), 1.0, 0.0);
     }
-    float u = seg(p, 0.80, 0.97);
-    float zf = max(1.0 - extrude, 0.02);
-    return float4(lerp(1.0, 0.02, u * u), zf, 1.0 - smoothstep(0.6, 1.0, u), 0.0);
+    // Las letras arrancan ya en movimiento (sin pausa) y el frente sigue avanzando
+    float u = seg(p, p_follow, 0.97);
+    float z = lerp(1.0, 0.02, 0.45 * u + 0.55 * u * u);
+    float zo = min(lerp(zf, 0.02, u), z);
+    return float4(z, zo, 1.0 - smoothstep(0.6, 1.0, u), 0.0);
 }
 
 float4 stateClosing(float p)

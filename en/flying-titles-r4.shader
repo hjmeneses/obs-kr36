@@ -87,6 +87,17 @@ uniform float extrude<
     float minimum = 0.0; float maximum = 2.0; float step = 0.01;
 > = 1.2;
 
+uniform int follow_delay<
+    string label = "Time before letters follow the extrusion";
+    string widget_type = "select";
+    int    option_0_value = 0;
+    string option_0_label = "Half a second";
+    int    option_1_value = 1;
+    string option_1_label = "1 second";
+    int    option_2_value = 2;
+    string option_2_label = "2 seconds";
+> = 1;
+
 uniform float pass_dir<
     string label = "Pass above (-) / below (+)";
     string widget_type = "slider";
@@ -182,24 +193,40 @@ float horizonAt(float z)
     return smoothstep(z_far * fade_start, z_far * 0.97, z);
 }
 
+float follow_seconds()
+{
+    return (follow_delay == 0) ? 0.5 : ((follow_delay == 2) ? 2.0 : 1.0);
+}
+
 // States: same as the full version (x = letter z, y = z of the other end of the streak,
 // z = visibility, w = closing-credits exit phase)
 float4 stateOpening(float p)
 {
+    // Letters always leave at 0.80; the extrusion starts "Time before letters follow the
+    // extrusion" seconds earlier (never before the arrival ends). The ending stays the same; the
+    // reading pause is what gets longer or shorter.
+    float p_follow = 0.80;
+    float p_ext = max(0.30, p_follow - follow_seconds() / max(duration, 0.5));
+    float zf = max(1.0 - extrude, 0.02);
+
     if (p < 0.30) {
         float u = seg(p, 0.03, 0.30);
-        float z = lerp(z_far, 1.0, 1.0 - (1.0 - u) * (1.0 - u));
+        float z = lerp(z_far, 1.0, 1.0 - (1.0 - u) * (1.0 - u));   // arrives and slows down
         return float4(z, z, 1.0 - horizonAt(z), 0.0);
     }
-    if (p < 0.50)
-        return float4(1.0, 1.0, 1.0, 0.0);
-    if (p < 0.80) {
-        float u = seg(p, 0.50, 0.80);
-        return float4(1.0, max(1.0 - u * u * extrude, 0.02), 1.0, 0.0);
+    if (p < p_ext)
+        return float4(1.0, 1.0, 1.0, 0.0);                         // reading pause
+    if (p < p_follow) {
+        // The front accelerates and reaches its maximum right when the letters leave (it no
+        // longer gets stuck earlier)
+        float u = seg(p, p_ext, p_follow);
+        return float4(1.0, lerp(1.0, zf, u * u), 1.0, 0.0);
     }
-    float u = seg(p, 0.80, 0.97);
-    float zf = max(1.0 - extrude, 0.02);
-    return float4(lerp(1.0, 0.02, u * u), zf, 1.0 - smoothstep(0.6, 1.0, u), 0.0);
+    // Letters take off already moving (no pause) and the front keeps advancing
+    float u = seg(p, p_follow, 0.97);
+    float z = lerp(1.0, 0.02, 0.45 * u + 0.55 * u * u);
+    float zo = min(lerp(zf, 0.02, u), z);
+    return float4(z, zo, 1.0 - smoothstep(0.6, 1.0, u), 0.0);
 }
 
 float4 stateClosing(float p)
