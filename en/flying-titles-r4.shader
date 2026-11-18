@@ -144,7 +144,7 @@ uniform bool letterbox<
     string label = "CinemaScope 2.35:1 (black bars)";
 > = false;
 
-uniform float4 color_light = {0.35, 0.75, 1.0, 1.0};
+uniform float4 color_light = {0.25, 0.50, 1.0, 1.0};
 
 uniform float glow_strength<
     string label = "Glow";
@@ -157,6 +157,42 @@ uniform float glow_size<
     string widget_type = "slider";
     float minimum = 1.0; float maximum = 40.0; float step = 0.5;
 > = 10.0;
+
+uniform float white_core<
+    string label = "White core of the light (0 = pure blue)";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+> = 0.15;
+
+uniform bool flare<
+    string label = "Anamorphic flare (horizontal line)";
+> = false;
+
+uniform float flare_strength<
+    string label = "Flare: strength";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 2.0; float step = 0.01;
+> = 0.8;
+
+uniform float flare_y<
+    string label = "Flare: height (%)";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 100.0; float step = 0.1;
+> = 50.0;
+
+uniform float flare_length<
+    string label = "Flare: length (% of width)";
+    string widget_type = "slider";
+    float minimum = 5.0; float maximum = 100.0; float step = 1.0;
+> = 45.0;
+
+uniform float flare_thickness<
+    string label = "Flare: thickness (px)";
+    string widget_type = "slider";
+    float minimum = 0.5; float maximum = 10.0; float step = 0.1;
+> = 1.5;
+
+uniform float4 flare_color = {0.30, 0.55, 1.0, 1.0};
 
 uniform bool stars<
     string label = "Starfield background (otherwise transparent)";
@@ -297,6 +333,45 @@ float3 starfield(float2 uv, float2 vp, float t)
     return col;
 }
 
+// Anamorphic flare (optional): a thin horizontal line at the text's height, like the one from
+// CinemaScope lenses. It lights up where it crosses the letters (8 reads, only near the line)
+// and a sweep runs along it when the letters arrive.
+float3 anamorphicFlare(float2 uv, float2 vp, float ca, float sa, float z, float fade,
+                       float streak, float p, float t)
+{
+    if (!flare)
+        return float3(0.0, 0.0, 0.0);
+    float fy = flare_y * 0.01;
+    float dyp = (uv.y - fy) * uv_size.y;
+    float th = max(flare_thickness, 0.5);
+    if (abs(dyp) > th * 14.0)
+        return float3(0.0, 0.0, 0.0);
+    float prof = exp(-(dyp * dyp) / (th * th)) + 0.25 * exp(-abs(dyp) / (th * 5.0));
+
+    float len = flare_length * 0.01;
+    float jit = frac(hash12(float2(floor(uv.x * uv_size.x), 3.0)) + frac(t * 37.0));
+    float E = 0.0;
+    float kf = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float k = (kf + jit) / 8.0 * 2.0 - 1.0;
+        float2 rp = (float2(uv.x + k * len, fy) - vp) * uv_size;
+        float2 rl = float2(ca * rp.x + sa * rp.y, -sa * rp.x + ca * rp.y) / uv_size;
+        E += alphaAt(vp + rl * z) * exp(-abs(k) * 3.0);
+        kf += 1.0;
+    }
+    E = E / 8.0 * 4.0;
+
+    float a0 = (mode == 2) ? 0.40 : 0.26;
+    float u = seg(p, a0, a0 + 0.14);
+    float on = sin(3.14159265 * u);
+    float dx = (uv.x - lerp(-0.1, 1.1, u)) * uv_size.x;
+    float tail = exp(-abs(dx) / (uv_size.x * 0.25)) * on;
+    float r = th * 8.0;
+    float hot = exp(-(dx * dx + dyp * dyp * 4.0) / (r * r)) * on;
+
+    float I = flare_strength * fade * (E * (0.35 + 0.6 * streak) + tail * 1.2 + hot);
+    return flare_color.rgb * prof * I;
+}
 float4 mainImage(VertData v_in) : TARGET
 {
     float2 uv = v_in.uv;
@@ -376,7 +451,10 @@ float4 mainImage(VertData v_in) : TARGET
 
     float3 lc = lerp(color_light.rgb, tint, tint_w);
     float v = (face * 1.5 + light + fill * 0.9) * fade;
-    float3 col = lc * (v + halo * fade * 0.5) + saturate(v - 1.0) * 0.6;
+    // Hue-preserving curve: the brightest light reaches the light color, not white
+    float e = v + halo * fade * 0.5;
+    float3 col = lc * saturate((1.0 - exp(-1.2 * e)) / 0.835) + saturate(v - 1.5) * white_core;
+    col += anamorphicFlare(uv, vp, ca, sa, z, fade, streak, p, t);
     col *= in_band;
     float3 rgb = bg * in_band + col;
     float alpha = stars ? 1.0 : saturate(max(col.r, max(col.g, col.b)));
