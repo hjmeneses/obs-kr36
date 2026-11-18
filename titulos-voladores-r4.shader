@@ -161,10 +161,10 @@ uniform float glow_size<
 > = 10.0;
 
 uniform float white_core<
-    string label = "Nucleo blanco de la luz (0 = azul puro)";
+    string label = "Quemado a blanco de la estela (0 = azul puro)";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 1.0; float step = 0.01;
-> = 0.15;
+> = 0.7;
 
 uniform bool flare<
     string label = "Destello anamorfico (linea horizontal)";
@@ -195,6 +195,7 @@ uniform float flare_thickness<
 > = 1.5;
 
 uniform float4 flare_color = {0.30, 0.55, 1.0, 1.0};
+uniform float4 streak_color = {0.25, 0.72, 1.0, 1.0};
 
 uniform bool stars<
     string label = "Fondo de estrellas (si no, fondo transparente)";
@@ -488,7 +489,13 @@ float4 mainImage(VertData v_in) : TARGET
     float v = (face * 1.5 + light + fill * 0.9) * fade;
     // Curva que conserva el tono: lo más brillante llega al color de la luz, no al blanco
     float e = v + halo * fade * 0.5;
-    float3 col = lc * saturate((1.0 - exp(-1.2 * e)) / 0.835) + saturate(v - 1.5) * white_core;
+    float3 col = lc * saturate((1.0 - exp(-1.2 * e)) / 0.835);
+    // La estela tira a cian (streak_color) y donde acumula mucha luz la película se quema hacia
+    // blanco, como en los títulos originales; la cara de la letra se queda azul
+    float sl = light * fade;
+    float bri = max(col.b, col.g);
+    col = lerp(col, streak_color.rgb * bri, smoothstep(0.05, 0.6, sl));
+    col = lerp(col, float3(0.82, 0.94, 1.0) * saturate(bri + 0.1), smoothstep(0.35, 1.1, sl) * white_core);
     col += anamorphicFlare(uv, vp, ca, sa, z, fade, streak, p, t);
     col *= in_band;
     float3 rgb = bg * in_band + col;

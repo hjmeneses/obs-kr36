@@ -89,7 +89,7 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 | Bisel del cromo | Grosor del filo iluminado de las letras |
 | Brillo que cruza el texto | Destello diagonal que recorre las letras |
 | Resplandor | Halo alrededor del texto |
-| Núcleo blanco de la luz | Cuánto se blanquea la luz donde se acumula mucha. 0 = azul puro; por defecto 0.15, apenas un toque |
+| Quemado a blanco de la estela / `streak_color` | La estela tira a cian (`streak_color`) y donde se juntan muchas líneas se quema casi a blanco, como en los títulos originales. La cara de la letra se queda azul. 0 = sin quemado |
 | Destello anamórfico | **Opcional** (apagado por defecto). Una línea horizontal delgada, como la de los lentes de CinemaScope: se enciende donde cruza las letras y la recorre un barrido cuando llegan. Se ajusta con *intensidad*, *altura*, *largo*, *grosor* y `flare_color`. Combina con el formato 2.35:1 |
 | Fondo de estrellas | Apagado = fondo transparente, para ponerlo encima de otra cosa |
 | Densidad / Velocidad de las estrellas | Cuántas estrellas hay y qué tan rápido se acercan |
@@ -183,7 +183,7 @@ Enable **CinemaScope 2.35:1** for black bars: the original titles were anamorphi
 | Closing: fade-out distance / blur | How far the letters recede and how much they blur |
 | color_warm / color_cool | The orange and diffuse blue of the closing-credits fade |
 | Volume brightness / Edge brightness / Letter face shadow / Chrome / Bevel / Sheen | Solid chrome style only |
-| White core of the light | How much the light whitens where it builds up. 0 = pure blue; default 0.15 |
+| Streak burn to white / `streak_color` | The streak leans cyan (`streak_color`) and where many lines pile up it burns nearly to white, as in the original titles. The letter face stays blue. 0 = no burn |
 | Anamorphic flare | **Optional** (off by default). A thin horizontal line like a CinemaScope lens flare: it lights up where it crosses the letters and a sweep runs along it as they arrive. Tune with *strength*, *height*, *length*, *thickness* and `flare_color` |
 | Starfield background | Off = transparent background, to overlay on something else |
 
