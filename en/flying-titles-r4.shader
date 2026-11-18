@@ -1,7 +1,7 @@
 // Flying titles "region 4": a light version of flying-titles.shader, made for modest cards
 // such as a GTX 1650 Ti that is also encoding with NVENC. Kodalith style only.
 //
-// Differences from the full version, to spend ~15 texture reads per pixel instead of ~190:
+// Differences from the full version, to spend ~19 texture reads per pixel instead of ~190:
 //   - The streak uses few copies (6, 8 or 12) and each copy reads the texture once: its
 //     outline comes from the smoothed alpha edge, 4·a·(1-a), instead of comparing neighbors.
 //     Near the camera the letter is magnified and that edge widens, like the light sheets in
@@ -10,7 +10,7 @@
 //     eye averages it, so a few copies look like many.
 //   - No chrome style and no real blur; in the closing credits the outline widens to fake the
 //     blur.
-//   - 4-read halo.
+//   - 8-read halo.
 //
 // Same effects, timings and parameter names as the full version, so intro-control.lua works
 // the same. Usage: same as flying-titles.shader (on a nested scene).
@@ -372,6 +372,22 @@ float3 anamorphicFlare(float2 uv, float2 vp, float ca, float sa, float z, float 
     float I = flare_strength * fade * (E * (0.35 + 0.6 * streak) + tail * 1.2 + hot);
     return flare_color.rgb * prof * I;
 }
+// Halo: average alpha at 8 points on two rings (half and full distance). The pattern rotates
+// randomly per pixel and per frame, so the shifted copies of the letter don't form steps at
+// the corners and the glow stays round.
+float haloAt(float2 tc, float2 r, float jit)
+{
+    float m = 0.0;
+    float a0 = jit * 1.5707963;
+    float fi = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float a = a0 + fi * 0.7853982;
+        float rr = (i == 0 || i == 2 || i == 4 || i == 6) ? 0.5 : 1.0;
+        m += alphaAt(tc + float2(cos(a), sin(a)) * r * rr);
+        fi += 1.0;
+    }
+    return m * 0.125;
+}
 float4 mainImage(VertData v_in) : TARGET
 {
     float2 uv = v_in.uv;
@@ -443,10 +459,8 @@ float4 mainImage(VertData v_in) : TARGET
     fill = fill_cover * op * (1.0 + extra);
     bg *= 1.0 - fill_cover * extra;
 
-    // Halo: average alpha at 4 points around; 4·m·(1-m) peaks next to the edge
-    float2 go = glow_size * px * z * 0.7071;
-    float m = (alphaAt(tc + go) + alphaAt(tc - go)
-             + alphaAt(tc + float2(go.x, -go.y)) + alphaAt(tc + float2(-go.x, go.y))) * 0.25;
+    // Halo: average alpha at 8 points around; 4·m·(1-m) peaks next to the edge
+    float m = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0)));
     float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
     float3 lc = lerp(color_light.rgb, tint, tint_w);

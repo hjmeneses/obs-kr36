@@ -1,7 +1,7 @@
 // Títulos voladores "región 4": versión ligera de titulos-voladores.shader, pensada para
 // tarjetas modestas como una GTX 1650 Ti que además codifica con NVENC. Solo estilo Kodalith.
 //
-// Diferencias con la versión completa, para gastar ~15 lecturas de textura por pixel en vez de
+// Diferencias con la versión completa, para gastar ~19 lecturas de textura por pixel en vez de
 // ~190:
 //   - La estela usa pocas copias (6, 8 o 12) y cada copia lee la textura una sola vez: su
 //     contorno sale de la orilla suavizada del alfa, 4·a·(1-a), en vez de comparar vecinos.
@@ -11,7 +11,7 @@
 //     el ojo lo promedia, así que pocas copias se ven como muchas.
 //   - Sin estilo cromo y sin desenfoque real; en los créditos finales el contorno se ensancha
 //     para simular el desenfoque.
-//   - Halo con 4 lecturas.
+//   - Halo con 8 lecturas.
 //
 // Mismos efectos, mismos tiempos y los mismos nombres de parámetros que la versión completa,
 // así que intro-control.lua funciona igual. Uso: igual que titulos-voladores.shader (en una
@@ -374,6 +374,22 @@ float3 anamorphicFlare(float2 uv, float2 vp, float ca, float sa, float z, float 
     float I = flare_strength * fade * (E * (0.35 + 0.6 * streak) + tail * 1.2 + hot);
     return flare_color.rgb * prof * I;
 }
+// Halo: alfa promedio en 8 puntos sobre dos anillos (a media distancia y a la distancia
+// completa). El patrón gira al azar por pixel y por cuadro: así las copias desplazadas de la
+// letra no forman escalones en las esquinas y el resplandor queda redondo.
+float haloAt(float2 tc, float2 r, float jit)
+{
+    float m = 0.0;
+    float a0 = jit * 1.5707963;
+    float fi = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float a = a0 + fi * 0.7853982;
+        float rr = (i == 0 || i == 2 || i == 4 || i == 6) ? 0.5 : 1.0;
+        m += alphaAt(tc + float2(cos(a), sin(a)) * r * rr);
+        fi += 1.0;
+    }
+    return m * 0.125;
+}
 float4 mainImage(VertData v_in) : TARGET
 {
     float2 uv = v_in.uv;
@@ -445,10 +461,8 @@ float4 mainImage(VertData v_in) : TARGET
     fill = fill_cover * op * (1.0 + extra);
     bg *= 1.0 - fill_cover * extra;
 
-    // Halo: alfa promedio en 4 puntos alrededor; 4·m·(1-m) es máximo junto al borde
-    float2 go = glow_size * px * z * 0.7071;
-    float m = (alphaAt(tc + go) + alphaAt(tc - go)
-             + alphaAt(tc + float2(go.x, -go.y)) + alphaAt(tc + float2(-go.x, go.y))) * 0.25;
+    // Halo: alfa promedio en 8 puntos alrededor; 4·m·(1-m) es máximo junto al borde
+    float m = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0)));
     float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
     float3 lc = lerp(color_light.rgb, tint, tint_w);
