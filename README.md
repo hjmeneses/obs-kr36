@@ -2,6 +2,10 @@
 
 *Chrome titles with open-shutter light streaks toward the camera, for OBS.*
 
+![Créditos iniciales: las letras llegan, pausa de lectura y la estela se dispara hacia la cámara](images/creditos-iniciales.gif)
+
+<sub>Simulación aproximada de <code>titulos-voladores-hueca.shader</code> con texto hueco en Barlow. En OBS el grano y el brillo varían un poco. / Approximate simulation of the hollow-font shader.</sub>
+
 Shader para **OBS Studio** inspirado en los créditos de las películas de superhéroes de finales de los 70: letras de cromo azul que dejan estelas de luz hacia la cámara, como una cámara de animación con el obturador abierto, sobre un campo de estrellas en movimiento.
 
 *[English below](#english)*
@@ -61,6 +65,10 @@ La salida de las letras siempre empieza en el 80 %. Si acortas el tiempo de la e
 | **Cromo sólido** | Letra rellena con bisel de cromo y un volumen translúcido detrás. |
 
 Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos originales eran anamórficos.
+
+![Pausa de lectura con el destello anamórfico activado](images/pausa-destello.png)
+
+<sub>Pausa de lectura con el <b>destello anamórfico</b> activado (simulación).</sub>
 
 ## Parámetros
 
