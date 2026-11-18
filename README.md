@@ -103,6 +103,17 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 
 Tiene los mismos efectos, tiempos y nombres de parámetros, así que puedes cambiar entre las dos versiones sin perder ajustes. `intro-control.lua` también la reconoce. Para aligerarla más, pon antes del shader un filtro **Escalado/Relación de aspecto** a 960×540 en la escena anidada.
 
+## Versión con fuente hueca
+
+`titulos-voladores-hueca.shader` es para escribir los créditos con una **tipografía hueca** (de contorno): solo la línea de fuera, con el interior transparente, como la de los créditos de la película. Por ejemplo: *Helvetica Neue Bold Outline*, *Stark Hollow* o cualquier fuente "Outline".
+
+- El shader ya no calcula el borde: la línea de la fuente es la luz Kodalith. Conserva el trazo exacto de la tipografía, con sus esquinas, contornos dobles y adornos.
+- Cada trazo deja su propia línea de luz en la estela. Cuando la letra se oscurece detrás de la estela, la extrusión se sigue viendo encima, porque el interior hueco deja pasar la luz.
+- Es la más ligera: ~13 lecturas por pixel con 8 copias (1 de la letra, 8 de la estela y 4 del halo).
+- En vez de *Grosor del contorno* tiene **Engrosar el contorno** (0 = el trazo de la fuente tal cual; súbelo si la fuente es muy delgada) y **Brillo del contorno**. En los créditos finales la letra sí se desenfoca al apagarse.
+
+Si le das texto sólido verás solo la silueta rellena: para texto sólido usa la región 4. Tiene los mismos efectos, tiempos y nombres de parámetros, y `intro-control.lua` también la reconoce.
+
 ## Disparar la secuencia con un hotkey (script)
 
 `intro-control.lua` apaga el bucle y mueve el Progreso de 0 a 100 en la duración del filtro.
@@ -174,6 +185,10 @@ Enable **CinemaScope 2.35:1** for black bars: the original titles were anamorphi
 ### "Region 4" version (modest cards)
 
 `en/flying-titles-r4.shader` is a light version for GPUs such as the GTX 1650 Ti, especially when the same card encodes with NVENC. It uses ~15 texture reads per pixel instead of ~190: Kodalith only, 6/8/12 streak copies (**Streak copies** select) with one read each, grain that changes every frame like film grain, and a widening outline instead of a blur on the closing credits. Same effects, timings and parameter names, and `intro-control.lua` recognizes it. To lighten it further, add a **Scaling/Aspect Ratio** filter at 960×540 before the shader on the nested scene.
+
+### Hollow-font version
+
+`en/flying-titles-hollow.shader` is for credits written in a **hollow (outline) typeface**: only the outer line, transparent inside, like the film credits. For example *Helvetica Neue Bold Outline*, *Stark Hollow* or any "Outline" font. The shader no longer computes the edge: the font's line is the Kodalith light, keeping the exact stroke. Every stroke leaves its own light line in the streak, and when the letter darkens behind the streak, the extrusion still shows through the hollow inside. It is the lightest version, ~13 reads per pixel with 8 copies. *Outline width* is replaced by **Thicken outline** (0 = the font's stroke as is) and **Outline brightness**, and the closing credits get a real blur. Solid text only shows a filled silhouette, so use the region-4 version for solid text. Same effects, timings and parameter names, and `intro-control.lua` recognizes it.
 
 ### Hotkey (script)
 
