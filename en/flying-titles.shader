@@ -536,6 +536,24 @@ float haloAt(float2 tc, float2 r, float jit)
     }
     return m * 0.125;
 }
+// Face outline (the one read during the pause): 8 reads on a disk plus the center, rotated
+// randomly per pixel and per frame. A fixed ring skips the tip of sharp angles (N, A, M) and
+// leaves it forked; the disk closes it round.
+float faceOutline(float2 tc, float2 o, float jit)
+{
+    float hi = alphaAt(tc);
+    float lo = hi;
+    float fi = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float a = (fi + jit) * 2.39996323;
+        float r = sqrt((fi + 0.5 + (jit - 0.5) * 0.9) / 8.0) * 1.08;
+        float s = alphaAt(tc + float2(cos(a), sin(a)) * o * r);
+        hi = max(hi, s);
+        lo = min(lo, s);
+        fi += 1.0;
+    }
+    return hi - lo;
+}
 float4 mainImage(VertData v_in) : TARGET
 {
     float2 uv = v_in.uv;
@@ -598,7 +616,7 @@ float4 mainImage(VertData v_in) : TARGET
         // Kodalith: everything is light adding up over black, as in the optical printer.
         // Blur widens the outline and spreads the same light over more width.
         float w = kodalith_width + out_phase * horizon_blur;
-        float face = outlineAt(tc, w * px * z).x * (kodalith_width / w);
+        float face = faceOutline(tc, w * px * z, frac(hash12(floor(uv * uv_size) + 1.7) + frac(t * 29.0))) * (kodalith_width / w);
 
         // Streak: outline light accumulated at every instant of the exposure, plus a fill (the
         // whole swept letter) that makes it opaque

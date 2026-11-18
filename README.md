@@ -96,7 +96,7 @@ Activa **Formato CinemaScope 2.35:1** para las franjas negras: los títulos orig
 
 ## Versión "región 4" (tarjetas modestas)
 
-`titulos-voladores-r4.shader` es una versión ligera para GPUs como la GTX 1650 Ti, sobre todo si la misma tarjeta codifica con NVENC. Usa ~20 lecturas de textura por pixel en vez de ~210:
+`titulos-voladores-r4.shader` es una versión ligera para GPUs como la GTX 1650 Ti, sobre todo si la misma tarjeta codifica con NVENC. Usa ~25 lecturas de textura por pixel en vez de ~210:
 
 - Solo estilo Kodalith, sin cromo.
 - La estela usa 6, 8 u 12 copias (selector **Copias de la estela**) con una lectura cada una.
@@ -189,7 +189,7 @@ Enable **CinemaScope 2.35:1** for black bars: the original titles were anamorphi
 
 ### "Region 4" version (modest cards)
 
-`en/flying-titles-r4.shader` is a light version for GPUs such as the GTX 1650 Ti, especially when the same card encodes with NVENC. It uses ~20 texture reads per pixel instead of ~210: Kodalith only, 6/8/12 streak copies (**Streak copies** select) with one read each, grain that changes every frame like film grain, and a widening outline instead of a blur on the closing credits. Same effects, timings and parameter names, and `intro-control.lua` recognizes it. To lighten it further, add a **Scaling/Aspect Ratio** filter at 960×540 before the shader on the nested scene.
+`en/flying-titles-r4.shader` is a light version for GPUs such as the GTX 1650 Ti, especially when the same card encodes with NVENC. It uses ~25 texture reads per pixel instead of ~210: Kodalith only, 6/8/12 streak copies (**Streak copies** select) with one read each, grain that changes every frame like film grain, and a widening outline instead of a blur on the closing credits. Same effects, timings and parameter names, and `intro-control.lua` recognizes it. To lighten it further, add a **Scaling/Aspect Ratio** filter at 960×540 before the shader on the nested scene.
 
 ### Hollow-font version
 

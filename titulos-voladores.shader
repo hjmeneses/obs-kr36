@@ -536,6 +536,24 @@ float haloAt(float2 tc, float2 r, float jit)
     }
     return m * 0.125;
 }
+// Contorno de la cara (la que se lee en la pausa): 8 lecturas en un disco más el centro,
+// giradas al azar por pixel y por cuadro. Un anillo fijo se salta la punta de los ángulos
+// agudos (la N, la A, la M) y la deja bifurcada; el disco la cierra redonda.
+float faceOutline(float2 tc, float2 o, float jit)
+{
+    float hi = alphaAt(tc);
+    float lo = hi;
+    float fi = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float a = (fi + jit) * 2.39996323;
+        float r = sqrt((fi + 0.5 + (jit - 0.5) * 0.9) / 8.0) * 1.08;
+        float s = alphaAt(tc + float2(cos(a), sin(a)) * o * r);
+        hi = max(hi, s);
+        lo = min(lo, s);
+        fi += 1.0;
+    }
+    return hi - lo;
+}
 float4 mainImage(VertData v_in) : TARGET
 {
     float2 uv = v_in.uv;
@@ -599,7 +617,7 @@ float4 mainImage(VertData v_in) : TARGET
         // Kodalith: todo es luz que se suma sobre el negro, como en la copiadora óptica.
         // El desenfoque ensancha el contorno y reparte la misma luz en más ancho.
         float w = kodalith_width + out_phase * horizon_blur;
-        float face = outlineAt(tc, w * px * z).x * (kodalith_width / w);
+        float face = faceOutline(tc, w * px * z, frac(hash12(floor(uv * uv_size) + 1.7) + frac(t * 29.0))) * (kodalith_width / w);
 
         // Estela: luz acumulada del contorno en cada instante de la exposición, más un relleno
         // (la letra completa barrida) que la vuelve opaca
