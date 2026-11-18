@@ -415,10 +415,15 @@ float alphaAt(float2 tc)
 // o = medio ancho del contorno en uv (x e y por separado por la proporción de la pantalla).
 float2 outlineAt(float2 tc, float2 o)
 {
-    float ac = alphaAt(tc - o);
-    float gx = alphaAt(tc + float2(o.x, -o.y)) - ac;
-    float gy = alphaAt(tc + float2(-o.x, o.y)) - ac;
-    return float2(saturate(abs(gx) + abs(gy)), ac);
+    // 4 lecturas en cruz (arriba, abajo, izquierda, derecha): máximo - mínimo da el mismo
+    // contorno en todos los lados y esquinas, sin sesgo hacia una diagonal
+    float a1 = alphaAt(tc + float2(o.x, 0.0));
+    float a2 = alphaAt(tc - float2(o.x, 0.0));
+    float a3 = alphaAt(tc + float2(0.0, o.y));
+    float a4 = alphaAt(tc - float2(0.0, o.y));
+    float hi = max(max(a1, a2), max(a3, a4));
+    float lo = min(min(a1, a2), min(a3, a4));
+    return float2(hi - lo, (a1 + a2 + a3 + a4) * 0.25);
 }
 
 // Texto desenfocado en un disco de radio r (en pixeles de pantalla) a escala s.

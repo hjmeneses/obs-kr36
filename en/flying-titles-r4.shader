@@ -1,7 +1,7 @@
 // Flying titles "region 4": a light version of flying-titles.shader, made for modest cards
 // such as a GTX 1650 Ti that is also encoding with NVENC. Kodalith style only.
 //
-// Differences from the full version, to spend ~19 texture reads per pixel instead of ~190:
+// Differences from the full version, to spend ~20 texture reads per pixel instead of ~210:
 //   - The streak uses few copies (6, 8 or 12) and each copy reads the texture once: its
 //     outline comes from the smoothed alpha edge, 4·a·(1-a), instead of comparing neighbors.
 //     Near the camera the letter is magnified and that edge widens, like the light sheets in
@@ -295,13 +295,14 @@ float alphaAt(float2 tc)
     return image.SampleLevel(textureSampler, tc, 0.0).a;
 }
 
-// Outline of the letter face (3 diagonal reads), 1 on the edge
+// Outline of the letter face (4 reads in a cross, symmetric), 1 on the edge
 float outlineAt(float2 tc, float2 o)
 {
-    float ac = alphaAt(tc - o);
-    float gx = alphaAt(tc + float2(o.x, -o.y)) - ac;
-    float gy = alphaAt(tc + float2(-o.x, o.y)) - ac;
-    return saturate(abs(gx) + abs(gy));
+    float a1 = alphaAt(tc + float2(o.x, 0.0));
+    float a2 = alphaAt(tc - float2(o.x, 0.0));
+    float a3 = alphaAt(tc + float2(0.0, o.y));
+    float a4 = alphaAt(tc - float2(0.0, o.y));
+    return max(max(a1, a2), max(a3, a4)) - min(min(a1, a2), min(a3, a4));
 }
 
 // Stars: 4 layers approaching from the vanishing point (no texture reads)

@@ -1,8 +1,8 @@
 // Títulos voladores "región 4": versión ligera de titulos-voladores.shader, pensada para
 // tarjetas modestas como una GTX 1650 Ti que además codifica con NVENC. Solo estilo Kodalith.
 //
-// Diferencias con la versión completa, para gastar ~19 lecturas de textura por pixel en vez de
-// ~190:
+// Diferencias con la versión completa, para gastar ~20 lecturas de textura por pixel en vez de
+// ~210:
 //   - La estela usa pocas copias (6, 8 o 12) y cada copia lee la textura una sola vez: su
 //     contorno sale de la orilla suavizada del alfa, 4·a·(1-a), en vez de comparar vecinos.
 //     Cerca de la cámara la letra está ampliada y esa orilla se ensancha, como las láminas de
@@ -297,13 +297,14 @@ float alphaAt(float2 tc)
     return image.SampleLevel(textureSampler, tc, 0.0).a;
 }
 
-// Contorno de la cara de la letra (3 lecturas en diagonal), 1 en el borde
+// Contorno de la cara de la letra (4 lecturas en cruz, simétrico), 1 en el borde
 float outlineAt(float2 tc, float2 o)
 {
-    float ac = alphaAt(tc - o);
-    float gx = alphaAt(tc + float2(o.x, -o.y)) - ac;
-    float gy = alphaAt(tc + float2(-o.x, o.y)) - ac;
-    return saturate(abs(gx) + abs(gy));
+    float a1 = alphaAt(tc + float2(o.x, 0.0));
+    float a2 = alphaAt(tc - float2(o.x, 0.0));
+    float a3 = alphaAt(tc + float2(0.0, o.y));
+    float a4 = alphaAt(tc - float2(0.0, o.y));
+    return max(max(a1, a2), max(a3, a4)) - min(min(a1, a2), min(a3, a4));
 }
 
 // Estrellas: 4 capas que se acercan desde el punto de fuga (sin lecturas de textura)
