@@ -129,7 +129,7 @@ uniform float exposure<
     string label = "Streak exposure";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 20.0; float step = 0.1;
-> = 6.0;
+> = 3.0;
 
 // 0–1: how much the streak covers the letter. 1–2: a more solid streak that hides the stars.
 uniform float streak_opacity<
@@ -375,6 +375,7 @@ float4 mainImage(VertData v_in) : TARGET
             kf += 1.0;
         }
         light = light / nsf * exposure;
+        light = 1.6 * (1.0 - exp(-light / 1.6));            // thick strokes: no blowout
     }
 
     float op = saturate(streak_opacity);

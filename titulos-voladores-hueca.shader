@@ -130,7 +130,7 @@ uniform float exposure<
     string label = "Exposicion de la estela";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 20.0; float step = 0.1;
-> = 6.0;
+> = 3.0;
 
 // 0–1: qué tanto tapa la estela a la letra. 1–2: estela más sólida que tapa las estrellas.
 uniform float streak_opacity<
@@ -377,6 +377,7 @@ float4 mainImage(VertData v_in) : TARGET
             kf += 1.0;
         }
         light = light / nsf * exposure;
+        light = 1.6 * (1.0 - exp(-light / 1.6));            // trazos gruesos: sin quemarse
     }
 
     float op = saturate(streak_opacity);
