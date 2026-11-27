@@ -57,6 +57,8 @@ La salida de las letras siempre empieza en el 80 %. Si acortas el tiempo de la e
 |---|---|
 | 3–97 % | Nace en el centro con estelas hacia el espectador desde el primer instante y avanza hasta llenar el cuadro antes de desvanecerse |
 
+Si le pasas un escudo o logo de varios colores (un PNG con transparencia), cada frontera entre dos colores también cuenta como borde: cada forma de color (por ejemplo lo amarillo y lo rojo) se extruye por separado, y la luz, la estela, los filos y el halo toman el color de cada forma en lugar del azul. Esto solo pasa en el modo Escudo y en `titulos-voladores.shader`; los créditos siguen en azul.
+
 ## Estilos
 
 | Estilo | Cómo se ve |
@@ -165,6 +167,8 @@ Pick one in the **Effect** select. Percentages refer to the *Progress* slider.
 | 80–97 % | Right as the streak peaks, the letters leave after it, already moving, with no pause | …and three quarters of the way they blur from blue to orange and back to blue, going out before the vanishing point |
 
 **Emblem:** born at the center with streaks toward the viewer from the first frame, it advances until it fills the frame, then fades out.
+
+If you give it a multicolor shield or logo (a PNG with transparency), every border between two colors counts as an edge too: each colored shape (say the yellow and the red) is extruded on its own, and the light, streak, edges and halo take the color of each shape instead of blue. This only happens in Emblem mode and in `flying-titles.shader`; the credits stay blue.
 
 ### Styles
 

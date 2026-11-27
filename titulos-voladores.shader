@@ -412,19 +412,57 @@ float alphaAt(float2 tc)
     return textAt(tc).a;
 }
 
+// Color premultiplicado por alfa: fuera de la forma vale 0, así que la silueta también cuenta
+// como cambio de color.
+float4 premulAt(float2 tc)
+{
+    float4 c = textAt(tc);
+    return float4(c.rgb * c.a, c.a);
+}
+
+// De premultiplicado a color normal (negro donde no hay forma)
+float3 unpremul(float4 c)
+{
+    return c.a > 0.0001 ? c.rgb / c.a : float3(0.0, 0.0, 0.0);
+}
+
+// Fuerza del borde a partir de la diferencia (máximo - mínimo) entre lecturas vecinas. En los
+// créditos solo cuenta el alfa (la silueta de la letra). En el escudo también la frontera entre
+// dos colores, así cada forma de color (lo amarillo, lo rojo) se extruye por separado; el umbral
+// ignora los degradados suaves y el antialias dentro de una misma forma.
+float edgeOf(float4 d)
+{
+    float e = d.a;
+    if (mode == 2)
+        e = max(e, smoothstep(0.08, 0.3, max(d.r, max(d.g, d.b))));
+    return e;
+}
+
+// Contorno: fuerza del borde, cobertura (alfa promedio) y color promedio de la forma ahí.
+struct Outline {
+    float edge;
+    float fill;
+    float3 color;
+};
+
 // Contorno de la letra, como el sándwich Kodalith: 1 en el borde, 0 dentro y fuera.
 // o = medio ancho del contorno en uv (x e y por separado por la proporción de la pantalla).
-float2 outlineAt(float2 tc, float2 o)
+Outline outlineAt(float2 tc, float2 o)
 {
     // 4 lecturas en cruz (arriba, abajo, izquierda, derecha): máximo - mínimo da el mismo
     // contorno en todos los lados y esquinas, sin sesgo hacia una diagonal
-    float a1 = alphaAt(tc + float2(o.x, 0.0));
-    float a2 = alphaAt(tc - float2(o.x, 0.0));
-    float a3 = alphaAt(tc + float2(0.0, o.y));
-    float a4 = alphaAt(tc - float2(0.0, o.y));
-    float hi = max(max(a1, a2), max(a3, a4));
-    float lo = min(min(a1, a2), min(a3, a4));
-    return float2(hi - lo, (a1 + a2 + a3 + a4) * 0.25);
+    float4 a1 = premulAt(tc + float2(o.x, 0.0));
+    float4 a2 = premulAt(tc - float2(o.x, 0.0));
+    float4 a3 = premulAt(tc + float2(0.0, o.y));
+    float4 a4 = premulAt(tc - float2(0.0, o.y));
+    float4 hi = max(max(a1, a2), max(a3, a4));
+    float4 lo = min(min(a1, a2), min(a3, a4));
+    float4 avg = (a1 + a2 + a3 + a4) * 0.25;
+    Outline r;
+    r.edge = edgeOf(hi - lo);
+    r.fill = avg.a;
+    r.color = unpremul(avg);
+    return r;
 }
 
 // Texto desenfocado en un disco de radio r (en pixeles de pantalla) a escala s.
@@ -524,15 +562,16 @@ float3 anamorphicFlare(float2 uv, float2 vp, float ca, float sa, float z, float 
 // Halo: alfa promedio en 8 puntos sobre dos anillos (a media distancia y a la distancia
 // completa). El patrón gira al azar por pixel y por cuadro: así las copias desplazadas de la
 // letra no forman bordes dobles en las esquinas y el resplandor queda redondo.
-float haloAt(float2 tc, float2 r, float jit)
+// Devuelve el promedio premultiplicado: .a es la cobertura y el rgb da el color del halo.
+float4 haloAt(float2 tc, float2 r, float jit)
 {
-    float m = 0.0;
+    float4 m = float4(0.0, 0.0, 0.0, 0.0);
     float a0 = jit * 1.5707963;
     float fi = 0.0;
     for (int i = 0; i < 8; i++) {
         float a = a0 + fi * 0.7853982;
         float rr = (i == 0 || i == 2 || i == 4 || i == 6) ? 0.5 : 1.0;
-        m += alphaAt(tc + float2(cos(a), sin(a)) * r * rr);
+        m += premulAt(tc + float2(cos(a), sin(a)) * r * rr);
         fi += 1.0;
     }
     return m * 0.125;
@@ -540,20 +579,23 @@ float haloAt(float2 tc, float2 r, float jit)
 // Contorno de la cara (la que se lee en la pausa): 8 lecturas en un disco más el centro,
 // giradas al azar por pixel y por cuadro. Un anillo fijo se salta la punta de los ángulos
 // agudos (la N, la A, la M) y la deja bifurcada; el disco la cierra redonda.
-float faceOutline(float2 tc, float2 o, float jit)
+// Devuelve el color promedio de la forma alrededor (rgb) y la fuerza del contorno (a).
+float4 faceOutline(float2 tc, float2 o, float jit)
 {
-    float hi = alphaAt(tc);
-    float lo = hi;
+    float4 hi = premulAt(tc);
+    float4 lo = hi;
+    float4 sum = hi;
     float fi = 0.0;
     for (int i = 0; i < 8; i++) {
         float a = (fi + jit) * 2.39996323;
         float r = sqrt((fi + 0.5 + (jit - 0.5) * 0.9) / 8.0) * 1.08;
-        float s = alphaAt(tc + float2(cos(a), sin(a)) * o * r);
+        float4 s = premulAt(tc + float2(cos(a), sin(a)) * o * r);
         hi = max(hi, s);
         lo = min(lo, s);
+        sum += s;
         fi += 1.0;
     }
-    return hi - lo;
+    return float4(unpremul(sum), edgeOf(hi - lo));
 }
 float4 mainImage(VertData v_in) : TARGET
 {
@@ -618,12 +660,16 @@ float4 mainImage(VertData v_in) : TARGET
         // Kodalith: todo es luz que se suma sobre el negro, como en la copiadora óptica.
         // El desenfoque ensancha el contorno y reparte la misma luz en más ancho.
         float w = kodalith_width + out_phase * horizon_blur;
-        float face = faceOutline(tc, w * px * z, frac(hash12(floor(uv * uv_size) + 1.7) + frac(t * 29.0))) * (kodalith_width / w);
+        float4 fo = faceOutline(tc, w * px * z, frac(hash12(floor(uv * uv_size) + 1.7) + frac(t * 29.0)));
+        float face = fo.a * (kodalith_width / w);
 
         // Estela: luz acumulada del contorno en cada instante de la exposición, más un relleno
-        // (la letra completa barrida) que la vuelve opaca
+        // (la letra completa barrida) que la vuelve opaca. En el escudo también se acumula el
+        // color de la forma que deja cada luz.
         float light = 0.0;
         float fill = 0.0;
+        float3 lightC = float3(0.0, 0.0, 0.0);
+        float3 fillC = float3(0.0, 0.0, 0.0);
         if (has_streak) {
             float kf = 0.0;
             for (int i = 0; i < 32; i++) {
@@ -632,12 +678,18 @@ float4 mainImage(VertData v_in) : TARGET
                 float zk = z * exp2(k * log2(ratio));
                 float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
                 float wk = lerp(1.0, 0.6, k);
-                float2 ol = outlineAt(tck, kodalith_width * px * zk);
-                light += ol.x * wk;
-                fill = max(fill, ol.y * wk);
+                Outline ol = outlineAt(tck, kodalith_width * px * zk);
+                light += ol.edge * wk;
+                lightC += ol.color * (ol.edge * wk);
+                float fk = ol.fill * wk;
+                if (fk > fill) {
+                    fill = fk;
+                    fillC = ol.color;
+                }
                 kf += 1.0;
             }
             light = light / nsf * exposure;
+            lightC = lightC / nsf * exposure;
         }
         // La estela tapa la letra en proporción a su largo: solo se lee nítida en la pausa
         float op = saturate(streak_opacity);
@@ -649,20 +701,35 @@ float4 mainImage(VertData v_in) : TARGET
         bg *= 1.0 - fill_cover * extra;
 
         // Halo junto a los bordes, por dentro y por fuera (4·m·(1-m) es máximo en el borde)
-        float m = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0)));
+        float4 hm = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0)));
+        float m = hm.a;
         float halo = 4.0 * m * (1.0 - m) * glow_strength * (1.0 + out_phase);
 
         float3 lc = lerp(color_light.rgb, tint, tint_w);
         float v = (face * 1.5 + light + fill * 0.9) * fade;
         // Curva que conserva el tono: lo más brillante llega al color de la luz, no al blanco
         float e = v + halo * fade * 0.5;
-        float3 col = lc * saturate((1.0 - exp(-1.2 * e)) / 0.835);
-        // La estela tira a cian (streak_color) y donde acumula mucha luz la película se quema hacia
-        // blanco, como en los títulos originales; la cara de la letra se queda azul
         float sl = light * fade;
-        float bri = max(col.b, col.g);
-        col = lerp(col, streak_color.rgb * bri, smoothstep(0.05, 0.6, sl));
-        col = lerp(col, float3(0.82, 0.94, 1.0) * saturate(bri + 0.1), smoothstep(0.35, 1.1, sl) * white_core);
+        float3 col;
+        if (mode == 2) {
+            // Escudo: cada luz lleva el color de su forma (lo amarillo amarillo, lo rojo rojo).
+            // El tono es el promedio de los colores pesado por su luz; el halo toma el color de
+            // la forma cercana, o el de la estela si no hay forma junto al pixel.
+            float3 haloC = unpremul(hm);
+            float3 cw = (fo.rgb * face * 1.5 + lightC + fillC * fill * 0.9) * fade + haloC * halo * fade * 0.5;
+            float3 hue = cw / max(e, 0.0001);
+            col = hue * saturate((1.0 - exp(-1.2 * e)) / 0.835);
+            // Donde se acumula mucha luz la película se quema hacia el blanco, sin perder el tono
+            float bri = max(col.r, max(col.g, col.b));
+            col = lerp(col, lerp(hue, float3(1.0, 1.0, 1.0), 0.7) * saturate(bri + 0.1), smoothstep(0.35, 1.1, sl) * white_core);
+        } else {
+            col = lc * saturate((1.0 - exp(-1.2 * e)) / 0.835);
+            // La estela tira a cian (streak_color) y donde acumula mucha luz la película se quema
+            // hacia blanco, como en los títulos originales; la cara de la letra se queda azul
+            float bri = max(col.b, col.g);
+            col = lerp(col, streak_color.rgb * bri, smoothstep(0.05, 0.6, sl));
+            col = lerp(col, float3(0.82, 0.94, 1.0) * saturate(bri + 0.1), smoothstep(0.35, 1.1, sl) * white_core);
+        }
         col += anamorphicFlare(uv, vp, ca, sa, z, fade, streak, p, t);
         col *= in_band;
         float3 rgb = bg * in_band + col;
@@ -675,6 +742,7 @@ float4 mainImage(VertData v_in) : TARGET
     float2 tp = float2(-rd.y, rd.x) * line_width * px;    // perpendicular a la arista, en uv
 
     float vol = 0.0;
+    float3 volC = color_light.rgb;     // escudo: color de la forma que forma el volumen
     float edges = 0.0;
     float fi = 0.0;
     for (int i = 0; i < 32; i++) {
@@ -683,11 +751,16 @@ float4 mainImage(VertData v_in) : TARGET
         float zk = z * exp2(k * log2(ratio));              // ratio^k (ratio siempre > 0)
         float2 tck = vp + rel * zk - float2(0.0, dy * (z - zk));
         // Más claro junto a la letra, más tenue hacia el otro extremo
-        vol = max(vol, alphaAt(tck) * lerp(1.0, 0.6, k));
+        float4 ck = premulAt(tck);
+        float vk = ck.a * lerp(1.0, 0.6, k);
+        if (vk > vol) {
+            vol = vk;
+            volC = unpremul(ck);
+        }
         // Filo: un borde de la letra alineado con la arista se cruza en todas las muestras y
         // suma una línea brillante; un borde atravesado solo suma una muestra
         float2 off = tp * zk;
-        edges += abs(alphaAt(tck + off) - alphaAt(tck - off));
+        edges += edgeOf(abs(premulAt(tck + off) - premulAt(tck - off)));
         fi += 1.0;
     }
     if (abs(ratio - 1.0) < 0.001) {
@@ -703,7 +776,10 @@ float4 mainImage(VertData v_in) : TARGET
     float left = alphaAt(tc + float2(o.x, 0.0)) - alphaAt(tc - float2(o.x, 0.0));
     // Cara frontal más oscura que la extrusión, como en la película; el filo superior brilla
     float L = saturate(0.3 + 0.6 * top + 0.2 * left);
-    float3 chrome = lerp(color_deep.rgb, color_light.rgb, L);
+    // En el escudo el cromo toma el color de cada forma en lugar del azul
+    float3 cDeep = (mode == 2) ? src.rgb * 0.3 : color_deep.rgb;
+    float3 cLight = (mode == 2) ? src.rgb : color_light.rgb;
+    float3 chrome = lerp(cDeep, cLight, L);
     chrome += pow(saturate(top), 3.0) * 0.8;
     float band = uv.x + uv.y * 0.5 - (frac(t * 0.15) * 2.5 - 0.5);
     chrome += exp(-band * band * 60.0) * sheen;
@@ -715,10 +791,11 @@ float4 mainImage(VertData v_in) : TARGET
         textCol *= 1.0 - face_shadow * streak;
 
     textCol = lerp(textCol, tint * (0.7 + 0.5 * L), tint_w);
-    float3 glowCol = lerp(color_light.rgb, tint, tint_w);
+    // Resplandor: color y cobertura promediados en un anillo alrededor del pixel
+    float4 hm = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0)));
+    float3 glowCol = lerp((mode == 2) ? unpremul(hm) : color_light.rgb, tint, tint_w);
 
-    // Resplandor: alfa promediado en un anillo alrededor del pixel
-    float glow = haloAt(tc, glow_size * px * z, frac(hash12(floor(uv * uv_size) + 7.3) + frac(t * 23.0))) * 8.0;
+    float glow = hm.a * 8.0;
     // El halo crece al desenfocarse, como la luz dispersa a lo lejos
     glow = glow / 8.0 * glow_strength * fade * (1.0 + out_phase);
 
@@ -728,8 +805,8 @@ float4 mainImage(VertData v_in) : TARGET
     lines *= in_band;
     glow *= in_band;
     acc = over(acc, glowCol, saturate(glow) * (1.0 - a));
-    float3 volCol = color_light.rgb * lerp(0.7, 1.1, vol);
-    float3 lineCol = lerp(color_light.rgb, float3(1.0, 1.0, 1.0), 0.55);
+    float3 volCol = ((mode == 2) ? volC : color_light.rgb) * lerp(0.7, 1.1, vol);
+    float3 lineCol = lerp((mode == 2) ? volC : color_light.rgb, float3(1.0, 1.0, 1.0), 0.55);
     if (streak_in_front) {
         // La estela está entre la letra y la cámara: va encima de la cara, más tenue sobre
         // ella para que la letra se siga leyendo
